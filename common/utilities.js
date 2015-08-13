@@ -3,6 +3,8 @@ var utils = utils || {};
 
 (function() {
 	
+	utils.API_KEY = "AIzaSyC821H6-hmGKB4w_FaSnmDPN5_GcFJ8fbI";
+	
 	utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md"};
 	
 	var initializing = false, fnTest = /xyz/.test(function() {
@@ -80,6 +82,28 @@ var utils = utils || {};
 		
 	});
 	
+	utils.USER = utils.Class.extend({
+		
+		_gid : null,
+		
+		_name : null,
+		
+		_id : null,
+		
+		_company : null,
+		
+		init : function(gid, name, company, id){
+			this._gid = gid;
+			this._name = name;
+			this._id = id;
+			this._company = company;
+		},
+		
+		view : function(){
+		}
+		
+	});
+	
 	utils.RESTAURANT = utils.Class.extend({
 		
 		_url : null,
@@ -109,6 +133,43 @@ var utils = utils || {};
 		},
 		
 	});
+	
+	utils.IORDERMANAGER = utils.Class.extend({
+		
+		_db : null,
+		
+		init : function(databaseurl){
+			this._db = databaseurl;
+		},
+		
+		authenticateUser : function(user){
+			return true;
+		},
+		
+		findUserByGID: function(gid){
+			
+		},
+		
+		addUser : function(user){
+			
+		}
+		
+	});
+	
+	utils.getUserInfo = function(id, callback){
+		https://www.googleapis.com/plus/v1/people/me?key={YOUR_API_KEY}
+			$.get('https://www.googleapis.com/plus/v1/people/'+id+'?key='+utils.API_KEY, function(data){
+				if (!_.isEmpty(data)){
+					callback({name:data.name.familyName + " " + data.name.givenName, gid:data.id, company:data.domain});
+				}
+			});
+	};
+	
+	utils.mapUser = function(userInfo){
+		var user = new utils.USER(userInfo.gid, userInfo.name);
+		//TBD find company or define new onw
+		return user;
+	};
 	
 	 // 
     utils.Event=function(){
