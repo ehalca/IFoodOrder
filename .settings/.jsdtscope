@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry excluding="thirdparty/|common/|parsers/" kind="src" path=""/>
+	<classpathentry kind="src" path="common"/>
+	<classpathentry kind="src" path="parsers"/>
+	<classpathentry kind="src" path="thirdparty"/>
+	<classpathentry kind="con" path="org.eclipse.wst.jsdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path=""/>
+</classpath>

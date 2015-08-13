@@ -11,11 +11,27 @@
   },
   "permissions": [
     "activeTab",
-    "https://ajax.googleapis.com/"
+     "identity",
+    "background",
+    "https://ajax.googleapis.com/",
+    "tabs", "https://docs.google.com/feeds/*",
+	"https://www.google.com/accounts/OAuthGetRequestToken",
+	"https://www.google.com/accounts/OAuthAuthorizeToken",
+	"https://www.google.com/accounts/OAuthGetAccessToken"
   ],
+  
   "content_scripts": [{
       "matches": ["http://www.andys.md/*"],
       "js": ["thirdparty/jquery-2.1.4.min.js","common/utilities.js", "common/parser.js","parsers/andys-parser.js"],
       "css" : ["css/iOrder.css", "css/andys.css"]
-    }]
+    }],
+    
+    
+    
+    "oauth2": {
+    "client_id": "970815733576-2k5ggsdn3pc49lq5afhddcbi84ml1b71.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive"
+    ]
+  }
 }

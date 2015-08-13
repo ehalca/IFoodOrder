@@ -1,6 +1,6 @@
 var utils = utils || {};
 
-(function() {
+$(document).ready(function() {
 	
 	utils.AndysParser = utils.PARSER.extend({
 		
@@ -49,4 +49,4 @@ var utils = utils || {};
 	var ANDYS_RESTAURANT = new utils.RESTAURANT(utils.ANDYS_RESTAURANT_CONST);
 	window.parser = new utils.AndysParser();
 	
-})();
+});
