@@ -62,6 +62,68 @@ var utils = utils || {};
 		return Class;
 	};
 	
+	utils.AUTHENTICATOR = utils.Class.extend({
+		
+		_orderManager : null,
+		
+		_onSucces : null,
+		
+		_user : null,
+		
+		init: function(orderManager, onSucces){
+			this._orderManager = orderManager;
+			this._onSucces = onSucces;
+		},
+		
+		onSuccessfullAuthentication: function(){
+			if (this._onSuccess){
+				this._onSuccess.call(undefined, this._user);
+			}
+		},
+	
+		authenticateWithToken : function (){
+			var that = this;
+			var google = new OAuth2('google', {
+				  client_id: '970815733576-41liq0d4s6m43fuisbbf4om0gc5enb3d.apps.googleusercontent.com',
+				  client_secret: 'VAs7nZOzo_9ltR44lvIA1ou6',
+				  api_scope: 'https://www.googleapis.com/auth/plus.profile.emails.read https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore'
+				});
+
+			google.authorize(function() {
+				var token = google.getAccessToken()
+				if (!_.isEmpty(token)){
+					utils.getUserInfo(undefined, token, function(userInfo){
+						var user  = utils.mapUser(userInfo);
+						if (that.checkUser(user)){
+							that._user = user;
+							that.onSuccessfullAuthentication();
+						}
+					});
+				}
+			});
+		},
+		
+		authenticateWithIdentity: function(){
+			var that = this;
+			chrome.identity.getProfileUserInfo(function(token) {
+				if (!_.isEmpty(token.id)){
+					var user  = utils.mapUser(userInfo);
+					if (that.checkUser(user)){
+						that._user = user;
+						that.onSuccessfullAuthentication();
+					}
+				}
+			});
+		},
+		
+		checkUser : function(user){
+			
+			 this._orderManager.authenticateUser(this._user);
+		},
+		
+		
+	});
+	
 	
 	utils.ITEM = utils.Class.extend({
 		
@@ -156,18 +218,47 @@ var utils = utils || {};
 		
 	});
 	
-	utils.getUserInfo = function(id, callback){
-		https://www.googleapis.com/plus/v1/people/me?key={YOUR_API_KEY}
-			$.get('https://www.googleapis.com/plus/v1/people/'+id+'?key='+utils.API_KEY, function(data){
-				if (!_.isEmpty(data)){
-					callback({name:data.name.familyName + " " + data.name.givenName, gid:data.id, company:data.domain});
-				}
-			});
+	utils.ENTITYMANAGER = utils.Class.extend({
+		
+		_endpoint : null,
+		
+		init: function(){
+			
+		},
+		
+		findById : function(){
+			
+		},
+		
+		save : function(){
+			
+		},
+		
+		deleteEntity : function(){
+			
+		}
+		
+	});
+	
+	utils.getUserInfo = function(id, token, callback){
+		$.ajax({
+	         url: 'https://www.googleapis.com/plus/v1/people/'+(id || 'me')+'?key='+utils.API_KEY,
+	         type: "GET",
+	         beforeSend: function(xhr){
+	        	 if (token)
+	        		 xhr.setRequestHeader('Authorization', 'Bearer '+token);
+	        	 },
+	         success: function(data){
+					if (!_.isEmpty(data)){
+						callback({name:data.name.familyName + " " + data.name.givenName, gid:data.id, company:data.domain});
+					}
+				} 
+	      });
 	};
 	
 	utils.mapUser = function(userInfo){
 		var user = new utils.USER(userInfo.gid, userInfo.name);
-		//TBD find company or define new onw
+		//TBD find company or define new now
 		return user;
 	};
 	

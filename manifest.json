@@ -18,18 +18,28 @@
     "https://ajax.googleapis.com/",
     "tabs", "https://docs.google.com/feeds/*",
     "http://www.google.com/m8/feeds/",
-	"https://www.google.com/accounts/OAuthGetRequestToken",
-	"https://www.google.com/accounts/OAuthAuthorizeToken",
-	"https://www.google.com/accounts/OAuthGetAccessToken"
+	"https://accounts.google.com/o/oauth2/token"
   ],
+  "background": {
+	    "scripts": [
+	      "background.js"
+	    ]
+	},
   
   "content_scripts": [{
       "matches": ["http://www.andys.md/*"],
       "js": ["thirdparty/jquery-2.1.4.min.js","common/utilities.js", "common/parser.js","parsers/andys-parser.js"],
       "css" : ["css/iOrder.css", "css/andys.css"]
+    },
+     {
+      "matches": ["http://www.google.com/robots.txt*"],
+      "js": ["oauth2/oauth2_inject.js"],
+        "run_at": "document_start"
     }],
     
-    
+    "web_accessible_resources" : [
+    "oauth2/oauth2.html"
+  ],
     
     "oauth2": {
     "client_id": "970815733576-8fguvu2q1bm1kq90usgrrr87sjhm11r3.apps.googleusercontent.com",
