@@ -70,6 +70,8 @@ var utils = utils || {};
 		
 		_user : null,
 		
+		_google : null,
+		
 		init: function(orderManager, onSucces){
 			this._orderManager = orderManager;
 			this._onSucces = onSucces;
@@ -83,13 +85,19 @@ var utils = utils || {};
 	
 		authenticateWithToken : function (){
 			var that = this;
-			var google = new OAuth2('google', {
+			this._google = new OAuth2('google', {
 				  client_id: '970815733576-41liq0d4s6m43fuisbbf4om0gc5enb3d.apps.googleusercontent.com',
 				  client_secret: 'VAs7nZOzo_9ltR44lvIA1ou6',
-				  api_scope: 'https://www.googleapis.com/auth/plus.profile.emails.read https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore'
+				  api_scope: ('https://www.googleapis.com/auth/plus.profile.emails.read'
+						  +' https://spreadsheets.google.com/feeds'
+						  +' https://www.googleapis.com/auth/drive'
+						  +' https://www.googleapis.com/auth/drive.appdata'
+						  +' https://www.googleapis.com/auth/drive.file'
+						  +' https://www.googleapis.com/auth/drive.metadata'
+						  )
 				});
 
-			google.authorize(function() {
+			this._google.authorize(function() {
 				var token = google.getAccessToken()
 				if (!_.isEmpty(token)){
 					utils.getUserInfo(undefined, token, function(userInfo){
@@ -200,8 +208,8 @@ var utils = utils || {};
 		
 		_db : null,
 		
-		init : function(databaseurl){
-			this._db = databaseurl;
+		init : function(db){
+			this._db = db;
 		},
 		
 		authenticateUser : function(user){
@@ -213,6 +221,49 @@ var utils = utils || {};
 		},
 		
 		addUser : function(user){
+			
+		}
+		
+	});
+	
+	utils.DATASTORE = utils.Class.extend({
+		
+		init : function(){
+			
+		},
+		
+		getAllOrders : function(user){
+			
+		},
+		
+		saveNewOrder : function(order){
+			
+		}
+		
+	});
+	
+	utils.GDriveDataStore = utils.DATASTORE.extend({
+		
+		_user : null,
+		
+		_documentName : null,
+		
+		init : function(user){
+			this._super();
+			this._user = user;
+			this._documentName = user._company._name + ' Orders.xls'; 
+			this.initDriveDocument();
+		},
+		
+		initDriveDocument : function(){
+			
+		},
+		
+		getAllOrders : function(){
+			
+		},
+		
+		saveNewOrder : function(order){
 			
 		}
 		
