@@ -64,17 +64,14 @@ var utils = utils || {};
 	
 	utils.AUTHENTICATOR = utils.Class.extend({
 		
-		_orderManager : null,
-		
-		_onSucces : null,
+		_onSuccess : null,
 		
 		_user : null,
 		
 		_google : null,
 		
-		init: function(orderManager, onSucces){
-			this._orderManager = orderManager;
-			this._onSucces = onSucces;
+		init: function(onSucces){
+			this._onSuccess = onSucces;
 		},
 		
 		onSuccessfullAuthentication: function(){
@@ -98,17 +95,19 @@ var utils = utils || {};
 				});
 
 			this._google.authorize(function() {
-				var token = google.getAccessToken()
+				var token = that._google.getAccessToken();
 				if (!_.isEmpty(token)){
 					utils.getUserInfo(undefined, token, function(userInfo){
-						var user  = utils.mapUser(userInfo);
-						if (that.checkUser(user)){
+						var user  = utils.mapUser(userInfo, token);
 							that._user = user;
 							that.onSuccessfullAuthentication();
-						}
 					});
 				}
 			});
+		},
+		
+		getAccessToken : function(){
+			return this._google.getAccessToken();
 		},
 		
 		authenticateWithIdentity: function(){
@@ -123,12 +122,6 @@ var utils = utils || {};
 				}
 			});
 		},
-		
-		checkUser : function(user){
-			
-			 this._orderManager.authenticateUser(this._user);
-		},
-		
 		
 	});
 	
@@ -174,6 +167,17 @@ var utils = utils || {};
 		
 	});
 	
+	utils.OAuthUSER = utils.USER.extend({
+		
+		
+		_accessToken : null,
+		
+		init : function(gid, name, company, id){
+			this._super(gid, name, company, id);
+		},
+		
+	});
+	
 	utils.RESTAURANT = utils.Class.extend({
 		
 		_url : null,
@@ -207,9 +211,29 @@ var utils = utils || {};
 	utils.IORDERMANAGER = utils.Class.extend({
 		
 		_db : null,
+		_auth : null,
 		
-		init : function(db){
-			this._db = db;
+		init : function(db, auth){
+			var that = this;
+			if (!auth){
+				this._auth=new utils.AUTHENTICATOR(function(user){
+					that._db.initDriveDocument(user, function(){
+						that.onDBReady();
+					});
+				});
+			}else{
+				this._auth = auth;
+			}
+			if (!db){
+				this._db = new utils.GDriveDataStore();
+			}else{
+				this._db = db;
+			}
+			this._auth.authenticateWithToken();
+		},
+		
+		onDBReady: function(){
+			console.log('DB Ready!!!');
 		},
 		
 		authenticateUser : function(user){
@@ -228,8 +252,8 @@ var utils = utils || {};
 	
 	utils.DATASTORE = utils.Class.extend({
 		
-		init : function(){
-			
+		
+		init : function(orderManager){
 		},
 		
 		getAllOrders : function(user){
@@ -246,17 +270,114 @@ var utils = utils || {};
 		
 		_user : null,
 		
+		_endPoints : null,
+		
 		_documentName : null,
 		
 		init : function(user){
 			this._super();
-			this._user = user;
-			this._documentName = user._company._name + ' Orders.xls'; 
-			this.initDriveDocument();
+			this._endPoints = {find:{url:'https://www.googleapis.com/drive/v2/files', type:'GET'},
+					insert:{url:'https://www.googleapis.com/drive/v2/files', type:'POST'},
+					permissions:{url:'https://www.googleapis.com/drive/v2/files/{id}/permissions', type:'POST'}};
 		},
 		
-		initDriveDocument : function(){
-			
+		initDriveDocument : function(user, callback){
+			var that =this;
+			this._user = user;
+			this._documentName = this._user._company + ' Orders';
+			this.findDocument(function(documentId){
+				var setDocument = function(documentId){
+					that._documentId = documentId;
+					if (callback)
+						callback.call(undefined);
+				};
+				if (documentId){
+					setDocument(documentId);
+				}else{
+					that.createDocument(setDocument);
+				}
+			});
+		},
+		
+		createDocument : function(callback){
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.insert.url+'?key='+utils.API_KEY,
+		         data: JSON.stringify({title: that._documentName, mimeType: "application/vnd.google-apps.spreadsheet"}),
+		         contentType:'application/json',
+		         type: that._endPoints.insert.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data)){
+							var id =  data.id;
+							that.setPermissions(id, function(){
+								callback(id);
+							});
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 fail: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+						 that.createDocument(callback);
+					 }
+				 }
+		      });
+		},
+		
+		setPermissions : function(id ,callback){
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.permissions.url.replace('{id}', id)+'?key='+utils.API_KEY,
+		         data: JSON.stringify({ "role": "writer","type": "domain","value": that._user._company}),
+		         contentType:'application/json',
+		         type: that._endPoints.permissions.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
+							callback();
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 fail: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+						 that.setPermissions(id, callback);
+					 }
+				 }
+		      });
+		},
+		
+		findDocument: function(callback){
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.find.url+'?key='+utils.API_KEY,
+		         data: {q:"title='"+that._documentName+"' and trashed=false"},
+		         type: that._endPoints.find.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data)){
+							var id = !_.isEmpty(data.items) ? data.items[0].id : undefined;
+							callback(id);
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 fail: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+						 that.findDocument(callback);
+					 }
+				 }
+		      });
 		},
 		
 		getAllOrders : function(){
@@ -265,7 +386,9 @@ var utils = utils || {};
 		
 		saveNewOrder : function(order){
 			
-		}
+		},
+		
+		
 		
 	});
 	
@@ -307,9 +430,11 @@ var utils = utils || {};
 	      });
 	};
 	
-	utils.mapUser = function(userInfo){
-		var user = new utils.USER(userInfo.gid, userInfo.name);
-		//TBD find company or define new now
+	utils.mapUser = function(userInfo, token){
+		var user = new utils.OAuthUSER(userInfo.gid, userInfo.name, userInfo.company);
+		if (token){
+			user._accessToken =token;
+		}
 		return user;
 	};
 	
