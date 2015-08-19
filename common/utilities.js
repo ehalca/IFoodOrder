@@ -200,10 +200,56 @@ var utils = utils || {};
 		
 		_restaurant : null,
 		
-		_items : null,
+		_itemName : null,
+		
+		_itemPrice : null,
+		
+		_user : null,
+		
+		_date : null,
+		
+		_status : null,
+		
+		init : function(restaurant, item, price, user, date, status){
+			this._restaurant = restaurant;
+			this._itemName = item;
+			this._itemPrice = price;
+			this._user = user;
+			this._date = date;
+			this._status = status;
+		},
+		
+		toGJSON: function(){
+			var result = {};
+			result['gsx:user'] = this._user._name;
+			result['gsx:restaurant'] = this._restaurant;
+			result['gsx:item'] = this._itemName;
+			result['gsx:price'] = this._itemPrice;
+			result['gsx:date'] = this._date;
+			result['gsx:status'] = this._status;
+			var doc = $.parseXML('<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended"/>');
+			var xml = doc.getElementsByTagName("entry")[0]
+			var key, elem
+
+			for (key in result) {
+			  if (result.hasOwnProperty(key)) {
+			    elem = doc.createElement(key)
+			    $(elem).text(result[key])
+			    xml.appendChild(elem)
+			  }
+			}
+			return xml.outerHTML;
+		},
 		
 		
-		init : function(){
+	});
+	
+	utils.GOrder = utils.ORDER.extend({
+		
+		_gEntry : null,
+		
+		init : function(entry){
+			this._gEntry = entry;
 		},
 		
 	});
@@ -234,6 +280,16 @@ var utils = utils || {};
 		
 		onDBReady: function(){
 			console.log('DB Ready!!!');
+			this._db.getAllOrders(function(orders){
+				console.log(orders);
+			});
+			var order = new utils.ORDER('andys', 'soleanca', '50', this._auth._user, 'now', 'new');
+			this._db.saveNewOrder(order, function(order){
+				console.log(order);
+			});
+			this._db.getAllOrders(function(orders){
+				console.log(orders);
+			});
 		},
 		
 		authenticateUser : function(user){
@@ -278,7 +334,13 @@ var utils = utils || {};
 			this._super();
 			this._endPoints = {find:{url:'https://www.googleapis.com/drive/v2/files', type:'GET'},
 					insert:{url:'https://www.googleapis.com/drive/v2/files', type:'POST'},
-					permissions:{url:'https://www.googleapis.com/drive/v2/files/{id}/permissions', type:'POST'}};
+					permissions:{url:'https://www.googleapis.com/drive/v2/files/{id}/permissions', type:'POST'},
+					revisions:{url:'https://www.googleapis.com/drive/v2/files/{id}/revisions/head', type:'PUT'},
+					items:{url:'https://spreadsheets.google.com/feeds/list/{id}/1/public/full?alt=json', type:'GET'},
+					cells:{url:'https://spreadsheets.google.com/feeds/cells/{id}/1/private/full/batch', type:'POST'},
+					dynamic:{
+							addOrder:{key:'http://schemas.google.com/g/2005#post', type:'POST'}
+						}};
 		},
 		
 		initDriveDocument : function(user, callback){
@@ -288,8 +350,10 @@ var utils = utils || {};
 			this.findDocument(function(documentId){
 				var setDocument = function(documentId){
 					that._documentId = documentId;
-					if (callback)
-						callback.call(undefined);
+					that.getAllOrders(function(){
+						if (callback)
+							callback.call(undefined);	
+					});
 				};
 				if (documentId){
 					setDocument(documentId);
@@ -340,7 +404,9 @@ var utils = utils || {};
 		        	 },
 		         success: function(data){
 						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
-							callback();
+							that.publish(id, function(){
+								callback();	
+							})
 						}else{
 							//TBD process error
 							console.log(data);
@@ -353,6 +419,62 @@ var utils = utils || {};
 				 }
 		      });
 		},
+		
+		publish : function(id ,callback){
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.revisions.url.replace('{id}', id)+'?key='+utils.API_KEY,
+		         data: JSON.stringify({  "publishAuto": true,"published": true}),
+		         contentType:'application/json',
+		         type: that._endPoints.revisions.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
+							that.checkHeaders(id, function(){
+								callback();
+							});
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 fail: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+						 that.setPermissions(id, callback);
+					 }
+				 }
+		      });
+		},
+		
+		checkHeaders : function(id, callback){
+			var headers = utils.getHeaders(id);
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.cells.url.replace('{id}', id)+'?key='+utils.API_KEY,
+		         data: headers,
+		         crossDomain : true,
+		         contentType:'application/atom+xml',
+		         type:  that._endPoints.cells.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
+							callback();
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 error: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+					 }
+				 }
+		      });
+		},
+		
 		
 		findDocument: function(callback){
 			var that = this;
@@ -380,12 +502,69 @@ var utils = utils || {};
 		      });
 		},
 		
-		getAllOrders : function(){
-			
+		getAllOrders : function(callback){
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.items.url.replace('{id}', that._documentId)+'&key='+utils.API_KEY,
+		         type: that._endPoints.items.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data)){
+							that._list = data;
+							callback(utils.parseListDataToOrders(data));
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 fail: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+						 that.getAllOrders(callback);
+					 }
+				 }
+		      });
 		},
 		
-		saveNewOrder : function(order){
-			
+		saveNewOrder : function(order, callback){
+			if (order._entry){
+				console.log(order + ' is allready saved.');
+				return;
+			}
+			var that = this;
+			var link = that.getLinkFor(that._endPoints.dynamic.addOrder.key);
+			$.ajax({
+		         url: link.href.replace('public','private') +'?key='+utils.API_KEY,
+		         data: order.toGJSON(),
+		         contentType:link.type,
+		         type: that._endPoints.dynamic.addOrder.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
+							callback();
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 fail: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+					 }
+				 }
+		      });
+		},
+		
+		getLinkFor: function(key){
+			var result = undefined;
+			this._list.feed.link.forEach(function(link){
+				if (link.rel === key){
+					result = link;
+				}
+			});
+			return result;
 		},
 		
 		
@@ -414,6 +593,17 @@ var utils = utils || {};
 		
 	});
 	
+	utils.parseListDataToOrders = function(data){
+		var result = [];
+		if (!_.isEmpty(data.feed.entry)){
+			data.feed.entry.forEach(function(entry){
+				var order = new utils.GOrder(entry);
+				result.push(order);
+			});
+		}
+		return result;
+	};
+	
 	utils.getUserInfo = function(id, token, callback){
 		$.ajax({
 	         url: 'https://www.googleapis.com/plus/v1/people/'+(id || 'me')+'?key='+utils.API_KEY,
@@ -428,6 +618,26 @@ var utils = utils || {};
 					}
 				} 
 	      });
+	};
+	
+	utils.getHeaders = function(id){
+		var feed = '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:batch="http://schemas.google.com/gdata/batch" xmlns:gs="http://schemas.google.com/spreadsheets/2006">';
+		
+		var result = [];
+		['user','restaurant','item','price','date','status'].forEach(function(header, index){
+			var doc ='<entry xmlns="http://www.w3.org/2005/Atom" '+
+				    'xmlns:gs="http://schemas.google.com/spreadsheets/2006" xmlns:batch="http://schemas.google.com/gdata/batch">'+
+				    ' <batch:id>A'+index+'</batch:id>'+
+				    '<batch:operation type="update"/>'+
+			  '<id>https://spreadsheets.google.com/feeds/cells/'+id+'/private/full/R0C'+index+'</id>'+
+			  '<link rel="edit" type="application/atom+xml" '+
+			   'href="https://spreadsheets.google.com/feeds/cells/'+id+'/worksheetId/private/full/R0C'+index+'"/>'+
+			  '<gs:cell row="0" col="'+index+'" inputValue="'+header+'"/>'+
+			'</entry>';
+			feed+=doc;
+		});
+		feed+='<id>https://spreadsheets.google.com/feeds/cells/'+id+'/worksheetId/private/full</id></feed>';
+		return feed;
 	};
 	
 	utils.mapUser = function(userInfo, token){
