@@ -5,8 +5,6 @@ var utils = utils || {};
 	
 	utils.API_KEY = "AIzaSyC821H6-hmGKB4w_FaSnmDPN5_GcFJ8fbI";
 	
-	utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md"};
-	
 	var initializing = false, fnTest = /xyz/.test(function() {
 		xyz;
 	}) ? /\b_super\b/ : /.*/;
@@ -70,18 +68,37 @@ var utils = utils || {};
 		
 		_google : null,
 		
-		init: function(onSucces){
+		init: function(onSucces, onFail){
 			this._onSuccess = onSucces;
+			this._onFail = onFail;
 		},
 		
-		onSuccessfullAuthentication: function(){
+		onSuccessfullAuthentication: function(callback){
 			if (this._onSuccess){
-				this._onSuccess.call(undefined, this._user);
+				this._onSuccess.call(undefined, this._user, callback);
+			}else{
+				if (callback){
+					callback();
+				}
+			}
+			
+		},
+		
+		onNoDomainAuthentication : function(callback){
+			if (this._onFail){
+				this._onFail.call(undefined, callback);
+			}else{
+				if (callback){
+					callback();
+				}
 			}
 		},
 	
-		authenticateWithToken : function (){
+		authenticateWithToken : function (refreshToken, success, fail){
 			var that = this;
+			if (refreshToken && this._google){
+				this._google.clearAccessToken();
+			}
 			this._google = new OAuth2('google', {
 				  client_id: '970815733576-41liq0d4s6m43fuisbbf4om0gc5enb3d.apps.googleusercontent.com',
 				  client_secret: 'VAs7nZOzo_9ltR44lvIA1ou6',
@@ -99,8 +116,21 @@ var utils = utils || {};
 				if (!_.isEmpty(token)){
 					utils.getUserInfo(undefined, token, function(userInfo){
 						var user  = utils.mapUser(userInfo, token);
+						if (_.isEmpty(user._company)){
+							that.onNoDomainAuthentication(function(){
+								if (fail){
+									fail.call(undefined);
+								}
+							});
+						}else{
 							that._user = user;
-							that.onSuccessfullAuthentication();
+							that.onSuccessfullAuthentication(function(){
+								if (success){
+									success.call(this, user);
+								}
+							});
+							
+						}
 					});
 				}
 			});
@@ -204,19 +234,25 @@ var utils = utils || {};
 		
 		_itemPrice : null,
 		
+		_itemId: null,
+		
 		_user : null,
 		
 		_date : null,
 		
+		_details : null,
+		
 		_status : null,
 		
-		init : function(restaurant, item, price, user, date, status){
+		init : function(restaurant, item, itemId, price, user, date, status, details){
 			this._restaurant = restaurant;
 			this._itemName = item;
+			this._itemId = itemId;
 			this._itemPrice = price;
 			this._user = user;
 			this._date = date;
 			this._status = status;
+			this._details = details;
 		},
 		
 		toGJSON: function(){
@@ -224,9 +260,11 @@ var utils = utils || {};
 			result['gsx:user'] = this._user._name;
 			result['gsx:restaurant'] = this._restaurant;
 			result['gsx:item'] = this._itemName;
+			result['gsx:itemId'] = this._itemId;
 			result['gsx:price'] = this._itemPrice;
 			result['gsx:date'] = this._date;
 			result['gsx:status'] = this._status;
+			result['gsx:details'] = JSON.stringify(this._details);
 			var doc = $.parseXML('<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended"/>');
 			var xml = doc.getElementsByTagName("entry")[0]
 			var key, elem
@@ -249,6 +287,7 @@ var utils = utils || {};
 		_gEntry : null,
 		
 		init : function(entry){
+			this._super(entry.gsx$restaurant.$t,entry.gsx$item.$t,entry.gsx$itemid.$t,entry.gsx$price.$t,new utils.USER(undefined, entry.gsx$user.$t),entry.gsx$date.$t,entry.gsx$status.$t,$.parseJSON(entry.gsx$details.$t));
 			this._gEntry = entry;
 		},
 		
@@ -258,13 +297,15 @@ var utils = utils || {};
 		
 		_db : null,
 		_auth : null,
+		_controller: null,
 		
 		init : function(db, auth){
 			var that = this;
 			if (!auth){
-				this._auth=new utils.AUTHENTICATOR(function(user){
+				this._auth=new utils.AUTHENTICATOR(function(user, callback){
 					that._db.initDriveDocument(user, function(){
 						that.onDBReady();
+						callback();
 					});
 				});
 			}else{
@@ -275,22 +316,48 @@ var utils = utils || {};
 			}else{
 				this._db = db;
 			}
-			this._auth.authenticateWithToken();
+			chrome.runtime.onMessage.addListener(function( message, sender, sendResponse) {
+				var processMessage = function(){
+					if (that._auth._user){
+						that._db.saveNewOrder(new utils.ORDER(message.restaurant,message.name, message.itemId,  message.price, that._auth._user, message.date, message.status, {imagePath:message.imagePath}), function(order){
+							sendResponse({error:false});
+						});
+					}else{
+						sendResponse({error:true, message:'not authenticated'});
+					}
+				}
+				if (!that._auth._user){
+					that._auth.authenticateWithToken(false, function(){
+						processMessage();
+					}, function(){
+						sendResponse({error:true, message:'not authenticated'});
+					});
+				}else{
+					processMessage();
+				}
+			});
+			
 		},
 		
-		onDBReady: function(){
-			console.log('DB Ready!!!');
+		onDBReady: function(){//no async calls
+			var that = this;
+		},
+		
+		getAuthenticateUserOrders: function(callback){
+			var that = this;
 			this._db.getAllOrders(function(orders){
-				console.log(orders);
-			});
-			var order = new utils.ORDER('andys', 'soleanca', '50', this._auth._user, 'now', 'new');
-			this._db.saveNewOrder(order, function(order){
-				console.log(order);
-			});
-			this._db.getAllOrders(function(orders){
-				console.log(orders);
+				var result = [];
+				if (!_.isEmpty(orders)){
+					orders.forEach(function(order){
+						if (order._user._name === that._auth._user._name){
+							result.push(order);
+						}
+					});
+				}
+				callback(result);
 			});
 		},
+		
 		
 		authenticateUser : function(user){
 			return true;
@@ -339,7 +406,8 @@ var utils = utils || {};
 					items:{url:'https://spreadsheets.google.com/feeds/list/{id}/1/public/full?alt=json', type:'GET'},
 					cells:{url:'https://spreadsheets.google.com/feeds/cells/{id}/1/private/full/batch', type:'POST'},
 					dynamic:{
-							addOrder:{key:'http://schemas.google.com/g/2005#post', type:'POST'}
+							addOrder:{key:'http://schemas.google.com/g/2005#post', type:'POST'},
+							deleteOrder:{key:'self', type:'DELETE'}
 						}};
 		},
 		
@@ -384,7 +452,7 @@ var utils = utils || {};
 							console.log(data);
 						}
 					},
-				 fail: function( jqXHR,  textStatus, errorThrown ){
+				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
 						 that.createDocument(callback);
 					 }
@@ -403,7 +471,7 @@ var utils = utils || {};
 		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
 		        	 },
 		         success: function(data){
-						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
+						if (!_.isEmpty(data)){
 							that.publish(id, function(){
 								callback();	
 							})
@@ -412,7 +480,7 @@ var utils = utils || {};
 							console.log(data);
 						}
 					},
-				 fail: function( jqXHR,  textStatus, errorThrown ){
+				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
 						 that.setPermissions(id, callback);
 					 }
@@ -431,7 +499,7 @@ var utils = utils || {};
 		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
 		        	 },
 		         success: function(data){
-						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
+						if (!_.isEmpty(data)){
 							that.checkHeaders(id, function(){
 								callback();
 							});
@@ -440,7 +508,7 @@ var utils = utils || {};
 							console.log(data);
 						}
 					},
-				 fail: function( jqXHR,  textStatus, errorThrown ){
+				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
 						 that.setPermissions(id, callback);
 					 }
@@ -454,14 +522,14 @@ var utils = utils || {};
 			$.ajax({
 		         url: that._endPoints.cells.url.replace('{id}', id)+'?key='+utils.API_KEY,
 		         data: headers,
-		         crossDomain : true,
 		         contentType:'application/atom+xml',
 		         type:  that._endPoints.cells.type,
 		         beforeSend: function(xhr){
 		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        		 xhr.setRequestHeader('If-Match', '*');
 		        	 },
 		         success: function(data){
-						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
+						if (!_.isEmpty(data)){
 							callback();
 						}else{
 							//TBD process error
@@ -494,7 +562,7 @@ var utils = utils || {};
 							console.log(data);
 						}
 					},
-				 fail: function( jqXHR,  textStatus, errorThrown ){
+				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
 						 that.findDocument(callback);
 					 }
@@ -505,7 +573,7 @@ var utils = utils || {};
 		getAllOrders : function(callback){
 			var that = this;
 			$.ajax({
-		         url: that._endPoints.items.url.replace('{id}', that._documentId)+'&key='+utils.API_KEY,
+		         url: that._endPoints.items.url.replace('{id}', that._documentId)+'&key='+utils.API_KEY ,
 		         type: that._endPoints.items.type,
 		         beforeSend: function(xhr){
 		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
@@ -519,7 +587,7 @@ var utils = utils || {};
 							console.log(data);
 						}
 					},
-				 fail: function( jqXHR,  textStatus, errorThrown ){
+				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
 						 that.getAllOrders(callback);
 					 }
@@ -528,14 +596,14 @@ var utils = utils || {};
 		},
 		
 		saveNewOrder : function(order, callback){
-			if (order._entry){
+			if (order._gEntry){
 				console.log(order + ' is allready saved.');
 				return;
 			}
 			var that = this;
 			var link = that.getLinkFor(that._endPoints.dynamic.addOrder.key);
 			$.ajax({
-		         url: link.href.replace('public','private') +'?key='+utils.API_KEY,
+		         url: link.href.replace('public','private') +'?key='+utils.API_KEY+'&alt=json',
 		         data: order.toGJSON(),
 		         contentType:link.type,
 		         type: that._endPoints.dynamic.addOrder.type,
@@ -543,23 +611,55 @@ var utils = utils || {};
 		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
 		        	 },
 		         success: function(data){
-						if (!_.isEmpty(data) && !_.isEmpty(data.id)){
-							callback();
+						if (!_.isEmpty(data)){
+							callback(new utils.GOrder(data.entry));
 						}else{
 							//TBD process error
 							console.log(data);
 						}
 					},
-				 fail: function( jqXHR,  textStatus, errorThrown ){
+				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
 					 }
 				 }
 		      });
 		},
 		
-		getLinkFor: function(key){
+		deleteOrder : function(order, callback){
+			if (!order._gEntry){
+				console.log(order + ' cant delete unsaved order!');
+				return;
+			}
+			var that = this;
+			var link = that.getLinkFor(that._endPoints.dynamic.deleteOrder.key, order._gEntry.link);
+			$.ajax({
+		         url: link.href.replace('public','private') +'?key='+utils.API_KEY,
+		         //data: order.toGJSON(),
+		         contentType:link.type,
+		         type: that._endPoints.dynamic.deleteOrder.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        		 xhr.setRequestHeader('If-Match', '*');
+		        	 },
+		         success: function(data){
+						if (_.isEmpty(data)){
+							callback(data);
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 error: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+					 }
+				 }
+		      });
+		},
+		
+		getLinkFor: function(key, links){
 			var result = undefined;
-			this._list.feed.link.forEach(function(link){
+			var links = links || this._list.feed.link;
+			links.forEach(function(link){
 				if (link.rel === key){
 					result = link;
 				}
@@ -571,27 +671,105 @@ var utils = utils || {};
 		
 	});
 	
-	utils.ENTITYMANAGER = utils.Class.extend({
+	utils.OrderController = utils.Class.extend({
 		
-		_endpoint : null,
+		_view : null,
 		
-		init: function(){
-			
+		_events: null,
+		
+		init: function(view){
+			var that = this;
+			this._events = {orderDeleted: new utils.Event()};
+			this._view = view;
+			this._view._events.deleted.subscribe(function(order, callback){
+				that.deleteOrder(order, callback);
+			});
 		},
 		
-		findById : function(){
-			
+		deleteOrder : function(order, callback){
+			this._events.orderDeleted.publish(order, function(){
+				callback();
+			});
 		},
 		
-		save : function(){
-			
-		},
-		
-		deleteEntity : function(){
-			
+		addOrder: function(order){
+			this._view.addView(new utils.OrderView(order));
 		}
 		
+		
 	});
+	
+	utils.OrdersView = utils.Class.extend({
+		
+		_orderViews : null,
+		
+		_events : null,
+		
+		_$wrap : null,
+		
+		init: function(views){
+			var that = this;
+			this._$wrap = $('#orders-container');
+			this._views = views || [];
+			this._events = {deleted: new utils.Event()};
+			this._views.forEach(function(view){
+				that.addView(view);
+			});
+			
+		},
+		
+		deleteView : function(view, callback){
+			this._events.deleted.publish(view._order, function(){
+				callback();
+			});
+		},
+		
+		addView: function(view){
+			var that = this;
+			view._events.deleted.subscribe(function(view, callback){
+				that.deleteView(view, callback);
+			});
+			view._$wrap.appendTo(this._$wrap).show('slow');
+		}
+		
+		
+		
+	});
+	
+	utils.OrderView = utils.Class.extend({
+		
+		_order : null,
+		
+		_events : null,
+		
+		_$wrap : null,
+		
+		init: function(order){
+			this._order = order;
+			this._events = {deleted: new utils.Event()};
+			this._$wrap = $('#order-view-mock').clone().removeAttr('id');
+			$('.item-name', this._$wrap).html(this._order._itemName);
+			$('.item-restaurant', this._$wrap).html(this._order._restaurant);
+			$('.item-price', this._$wrap).html(this._order._itemPrice);
+			$('.preview-item-img', this._$wrap).attr('src',utils.getParser(this._order._restaurant).getItemImage(this._order));
+			this.initHandlers();
+		},
+		
+		initHandlers : function(){
+			var that = this;
+			$('.remove-order', this._$wrap).click(function(){
+				that._events.deleted.publish(that, function(){
+					that._$wrap.hide('slow', function(){
+						$(this).remove();
+					});
+				});
+			});
+		}
+		
+		
+	});
+	
+	
 	
 	utils.parseListDataToOrders = function(data){
 		var result = [];
@@ -624,20 +802,27 @@ var utils = utils || {};
 		var feed = '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:batch="http://schemas.google.com/gdata/batch" xmlns:gs="http://schemas.google.com/spreadsheets/2006">';
 		
 		var result = [];
-		['user','restaurant','item','price','date','status'].forEach(function(header, index){
-			var doc ='<entry xmlns="http://www.w3.org/2005/Atom" '+
-				    'xmlns:gs="http://schemas.google.com/spreadsheets/2006" xmlns:batch="http://schemas.google.com/gdata/batch">'+
-				    ' <batch:id>A'+index+'</batch:id>'+
+		['user','restaurant','item','itemId','price','date','status','details'].forEach(function(header, index){
+			var pos = index +1;
+			var doc ='<entry'+
+				    '>'+
+				    ' <batch:id>'+String.fromCharCode(64 + pos)+'1</batch:id>'+
 				    '<batch:operation type="update"/>'+
-			  '<id>https://spreadsheets.google.com/feeds/cells/'+id+'/private/full/R0C'+index+'</id>'+
+			  '<id>https://spreadsheets.google.com/feeds/cells/'+id+'/private/full/R1C'+pos+'</id>'+
 			  '<link rel="edit" type="application/atom+xml" '+
-			   'href="https://spreadsheets.google.com/feeds/cells/'+id+'/worksheetId/private/full/R0C'+index+'"/>'+
-			  '<gs:cell row="0" col="'+index+'" inputValue="'+header+'"/>'+
+			   'href="https://spreadsheets.google.com/feeds/cells/'+id+'/1/private/full/R1C'+pos+'"/>'+
+			  '<gs:cell row="1" col="'+pos+'" inputValue="'+header+'"/>'+
 			'</entry>';
 			feed+=doc;
 		});
-		feed+='<id>https://spreadsheets.google.com/feeds/cells/'+id+'/worksheetId/private/full</id></feed>';
+		feed+='<id>https://spreadsheets.google.com/feeds/cells/'+id+'/1/private/full</id></feed>';
 		return feed;
+	};
+	
+	utils.getParser = function(restaurant){
+		if (restaurant === utils.ANDYS_RESTAURANT_CONST.name){
+			return new utils.AndysParser();
+		}
 	};
 	
 	utils.mapUser = function(userInfo, token){

@@ -16,13 +16,13 @@
      "identity.email",
     "background",
     "https://ajax.googleapis.com/",
-    "tabs", "https://docs.google.com/feeds/*",
+    "tabs", "https://docs.google.com/feeds/*","https://spreadsheets.google.com/feeds/*",
     "http://www.google.com/m8/feeds/",
 	"https://accounts.google.com/o/oauth2/token"
   ],
   "background": {
 	    "scripts": [
-	      "background.js"
+	      "thirdparty/jquery-2.1.4.min.js","thirdparty/underscore-min.js","/oauth2/oauth2.js","common/utilities.js","background.js"
 	    ]
 	},
   

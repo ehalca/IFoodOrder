@@ -2,15 +2,46 @@
 <html>
 <head>
 <script type="text/javascript" src="thirdparty/jquery-2.1.4.min.js"></script>
+<script type="text/javascript"
+	src="thirdparty/bootstrap/js/bootstrap.min.js"></script>
 <script type="text/javascript" src="thirdparty/underscore-min.js"></script>
 <script type="text/javascript" src="common/utilities.js"></script>
+<script type="text/javascript" src="common/parser.js"></script>
+<script type="text/javascript" src="parsers/andys-parser.js"></script>
 <script type="text/javascript" src="/oauth2/oauth2.js"></script>
-
+<link rel="stylesheet"
+	href="thirdparty/bootstrap/css/bootstrap-responsive.min.css">
+<link rel="stylesheet" href="thirdparty/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="css/popup.css">
 </head>
 <body>
-<input type="button" id='load' value="load"/>
-<textarea id="response"></textarea>
-<script type="text/javascript" src="popup.js"></script>
+	<div id="user-container" class="lead">
+		<span class='user-name'></span> <span class='user-email'></span>
+	</div>
+	<br />
+	<div id="orders-container">
+		<h4>Your order:</h4>
+	</div>
+	<br />
+	<script type="text/javascript" src="popup.js"></script>
+	<div id="mocks" style="display: none">
+		<div id="order-view-mock" class="order row" style="display:none">
+			<div class="span2">
+				<img src="" class="preview-item-img img-rounded">
+			</div>
+			<div class="span3 order-details">
+				<dl class="">
+					<dt>Dish</dt>
+					<dd class="item-name"></dd>
+					<dt>Restaurant</dt>
+					<dd class='item-restaurant'></dd>
+					<dt>Price</dt>
+					<dd class='item-price'></dd>
+				</dl>
+			</div>
+			<button class="close remove-order">&times;</button>
+		</div>
+	</div>
 </body>
 </html>
 

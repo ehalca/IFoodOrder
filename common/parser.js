@@ -29,8 +29,16 @@ var utils = utils || {};
 			// abstract, implement in subclasses for specific parsers
 		},
 		
-		addOrder : function(order){
-			this._orders.push(order);
+		addOrder : function(itemId, name, price, restaurant, imagePath){
+			var status = 'new';
+			var date = (new Date()).toString();
+			chrome.runtime.sendMessage(undefined, {itemId:itemId, name:name, price:price, restaurant:restaurant, status:status, date:date, imagePath:imagePath}, {}, function(){
+				
+			});
+		},
+		
+		getItemImage : function(order){
+			
 		}
 		
 	});

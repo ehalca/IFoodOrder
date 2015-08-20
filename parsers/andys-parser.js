@@ -2,6 +2,8 @@ var utils = utils || {};
 
 $(document).ready(function() {
 	
+	utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md"};
+	
 	utils.AndysParser = utils.PARSER.extend({
 		
 		hasItems : function (){
@@ -16,37 +18,26 @@ $(document).ready(function() {
 				$adding.click(function(){
 					that.itemButtonPressed(parseInt($element.find(".fav.setfav").attr("mid")),
 							$element.find("h5").text(),
-							parseFloat($element.find(".p_buy").find(".price").text()));
+							parseFloat($element.find(".p_buy").find(".price").text()),
+							$element.find("img.bf_1").attr("src")
+					);
 				});
 				$(this).find(".p_buy").append($adding);
 			});
 		},
 		
-		itemButtonPressed : function(itemId, name, price){
-			this.addOrder(new utils.AndysItem(itemId, name, price));
+		itemButtonPressed : function(itemId, name, price, img){
+			this.addOrder(itemId, name, price, utils.ANDYS_RESTAURANT_CONST.name, img);
 		},
 		
-		
-	});
-	
-	utils.AndysItem = utils.ITEM.extend({
-		
-		_id : null,
-		
-		init : function(id, name, price){
-			this._restaurant = ANDYS_RESTAURANT;
-			this._name = name;
-			this._price = price;
-			this._id = id;
-		},
-		
-		view : function(){
-			
+		getItemImage : function(order){
+			var result ="http://www.andys.md"+ order._details.imagePath;
+			return result;
 		}
 		
+		
 	});
 	
-	var ANDYS_RESTAURANT = new utils.RESTAURANT(utils.ANDYS_RESTAURANT_CONST);
 	window.parser = new utils.AndysParser();
 	
 });
