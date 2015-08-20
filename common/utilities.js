@@ -544,17 +544,20 @@ var utils = utils || {};
 		},
 		
 		
-		findDocument: function(callback){
+		findDocument: function(callback, shared){
 			var that = this;
 			$.ajax({
 		         url: that._endPoints.find.url+'?key='+utils.API_KEY,
-		         data: {q:"title='"+that._documentName+"' and trashed=false"},
+		         data: {q:"title='"+that._documentName+"' and trashed=false" + (shared ? " and sharedWithMe=true" : "")},
 		         type: that._endPoints.find.type,
 		         beforeSend: function(xhr){
 		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
 		        	 },
 		         success: function(data){
 						if (!_.isEmpty(data)){
+							if (_.isEmpty(data.items) && shared){
+								return that.findDocument(callback, false);
+							}
 							var id = !_.isEmpty(data.items) ? data.items[0].id : undefined;
 							callback(id);
 						}else{
@@ -564,7 +567,7 @@ var utils = utils || {};
 					},
 				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
-						 that.findDocument(callback);
+						 that.findDocument(callback, shared);
 					 }
 				 }
 		      });
@@ -701,7 +704,7 @@ var utils = utils || {};
 	
 	utils.OrdersView = utils.Class.extend({
 		
-		_orderViews : null,
+		_views : null,
 		
 		_events : null,
 		
@@ -709,31 +712,65 @@ var utils = utils || {};
 		
 		init: function(views){
 			var that = this;
-			this._$wrap = $('#orders-container');
+			this._$wrap = this.get$Wrap();
 			this._views = views || [];
-			this._events = {deleted: new utils.Event()};
+			this._events = {deleted: new utils.Event(), viewsChanged: new utils.Event()};
 			this._views.forEach(function(view){
 				that.addView(view);
 			});
-			
+			this.checkContainer();
+			this._events.viewsChanged.subscribe(function(){
+				that.checkContainer();
+			});
 		},
 		
 		deleteView : function(view, callback){
+			var that = this;
 			this._events.deleted.publish(view._order, function(){
 				callback();
+				that._views.splice(that._views.indexOf(view),1);
+				that._events.viewsChanged.publish();
 			});
 		},
 		
 		addView: function(view){
 			var that = this;
+			this._views.push(view);
 			view._events.deleted.subscribe(function(view, callback){
 				that.deleteView(view, callback);
 			});
 			view._$wrap.appendTo(this._$wrap).show('slow');
-		}
+			this._events.viewsChanged.publish();
+		},
+		
+		checkContainer: function(){
+			if (this._views.length === 0){
+				this._$noOrders = $("<p class='muted'>no orders, yet...</p>");
+				this._$wrap.append(this._$noOrders);
+			}else{
+				this._$noOrders.remove();
+			}
+		},
+		get$Wrap: function(){
+			return $('#orders-container');
+		},
 		
 		
+	});
+	
+	utils.HistoryOrdersView = utils.OrdersView.extend({
+		get$Wrap: function(){
+			return $('#history-orders-container');
+		},
 		
+		checkContainer: function(){
+			if (this._views.length === 0){
+				this._$noOrders = $("<tr><td class='muted' colspan='6'>no orders, yet...</td></tr>");
+				this._$wrap.append(this._$noOrders);
+			}else{
+				this._$noOrders.remove();
+			}
+		},
 	});
 	
 	utils.OrderView = utils.Class.extend({
@@ -747,12 +784,16 @@ var utils = utils || {};
 		init: function(order){
 			this._order = order;
 			this._events = {deleted: new utils.Event()};
-			this._$wrap = $('#order-view-mock').clone().removeAttr('id');
+			this._$wrap = this.get$Wrap();
 			$('.item-name', this._$wrap).html(this._order._itemName);
 			$('.item-restaurant', this._$wrap).html(this._order._restaurant);
 			$('.item-price', this._$wrap).html(this._order._itemPrice);
 			$('.preview-item-img', this._$wrap).attr('src',utils.getParser(this._order._restaurant).getItemImage(this._order));
 			this.initHandlers();
+		},
+		
+		get$Wrap: function(){
+			return $('#order-view-mock').clone().removeAttr('id');
 		},
 		
 		initHandlers : function(){
@@ -765,6 +806,46 @@ var utils = utils || {};
 				});
 			});
 		}
+		
+		
+	});
+	
+	utils.HistoryOrderView = utils.OrderView.extend({
+		
+		init: function(order){
+			this._super(order);
+			var date = new Date(this._order._date);
+			var sDate = "" + date.getDate() + date.getMonth() + date.getFullYear()
+			$('.item-date', this._$wrap).html(sDate);
+			$('.item-status', this._$wrap).html(this._order._status);
+		},
+		
+		initHandlers : function(){
+			var that = this;
+			this._$wrap.popover({
+				html: true,
+				placement: function (context, source) {
+			        var position = $(source).position();
+
+			        if (position.top < 180){
+			            return "bottom";
+			        }
+
+			        return "top";
+			    },
+				trigger: 'hover',
+				title:this._order._itemName,
+				content:function(){
+					var result = $('.preview-item-img', this._$wrap).clone();
+					result.removeClass('preview-item-img-small');
+					result.addClass('preview-item-img-big');
+					return result[0].outerHTML;
+				}
+			});
+		},
+		get$Wrap: function(){
+			return $('#order-history-view-mock').clone().removeAttr('id');
+		},
 		
 		
 	});
@@ -818,6 +899,10 @@ var utils = utils || {};
 		feed+='<id>https://spreadsheets.google.com/feeds/cells/'+id+'/1/private/full</id></feed>';
 		return feed;
 	};
+	
+	utils.isOrderActive = function(order){
+		return order._status === 'new';
+	}
 	
 	utils.getParser = function(restaurant){
 		if (restaurant === utils.ANDYS_RESTAURANT_CONST.name){
