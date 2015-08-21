@@ -202,8 +202,11 @@ var utils = utils || {};
 		
 		_accessToken : null,
 		
-		init : function(gid, name, company, id){
+		_image : null,
+		
+		init : function(gid, name, company, id, image){
 			this._super(gid, name, company, id);
+			this._image = image;
 		},
 		
 	});
@@ -253,6 +256,9 @@ var utils = utils || {};
 			this._date = date;
 			this._status = status;
 			this._details = details;
+			if (_.isEmpty(details.userImg) && !_.isEmpty(this._user._image)){
+				this._details.userImg = this._user._image;
+			}
 		},
 		
 		toGJSON: function(){
@@ -736,9 +742,11 @@ var utils = utils || {};
 		addView: function(view){
 			var that = this;
 			this._views.push(view);
-			view._events.deleted.subscribe(function(view, callback){
-				that.deleteView(view, callback);
-			});
+			if (view._events){
+				view._events.deleted.subscribe(function(view, callback){
+					that.deleteView(view, callback);
+				});
+			}
 			view._$wrap.appendTo(this._$wrap).show('slow');
 			this._events.viewsChanged.publish();
 		},
@@ -771,6 +779,66 @@ var utils = utils || {};
 				this._$noOrders.remove();
 			}
 		},
+	});
+	
+	utils.AdminOrdersView = utils.HistoryOrdersView.extend({
+		
+		_userViews : null,
+		
+		init: function(){
+			this._super();
+			this._userViews = {};
+		},
+		
+		
+		addView: function(view){
+			var userView = this._userViews[view._order._user]; 
+			if (!userView){
+				userView = new utils.UserView();
+				this._userViews[view._order._user] = userView;
+				this._super(userView);
+			}
+			userView.addOrderView(view);
+		},
+		
+		deleteView : function(user, callback){
+			var view = this._userViews[user];
+			view._$wrap.remove();
+			this._userViews[user] = undefined;
+			this._super(view, callback);
+		},
+		
+		get$Wrap: function(){
+			return $('#administrate-orders-container');
+		},
+		
+		checkContainer: function(){
+			if (this._views.length === 0){
+				this._$noOrders = $("<tr><td class='muted' colspan='5'>no orders, yet...</td></tr>");
+				this._$wrap.append(this._$noOrders);
+			}else{
+				this._$noOrders.remove();
+			}
+		},
+		
+		deleteViews : function(){
+			var that = this;
+			Object.keys(this._userViews).forEach(function(user){
+				that.deleteView(user);
+			});
+		},
+		
+		refreshing : function(isRefresh){
+			if (isRefresh){
+				this._$refreshOrders = $("<tr><td class='muted' colspan='5'><div class='progress progress-striped active'><div class='bar' style='width: 100%;'></div></div></td></tr>");
+				this._$wrap.append(this._$refreshOrders);
+				if (this._$noOrders)
+					this._$noOrders.remove();
+			}else{
+				this._$refreshOrders.remove();
+				this.checkContainer();
+			}
+		}
 	});
 	
 	utils.OrderView = utils.Class.extend({
@@ -822,6 +890,11 @@ var utils = utils || {};
 		
 		initHandlers : function(){
 			var that = this;
+			this.initPreview();
+		},
+		
+		initPreview: function(){
+			var that = this;
 			this._$wrap.popover({
 				html: true,
 				placement: function (context, source) {
@@ -843,8 +916,89 @@ var utils = utils || {};
 				}
 			});
 		},
+		
 		get$Wrap: function(){
 			return $('#order-history-view-mock').clone().removeAttr('id');
+		},
+		
+		
+	});
+	
+	utils.UserView = utils.Class.extend({
+		
+		_ordersViews : null,
+		
+		_$wrap : null,
+		
+		_total : 0,
+		
+		init: function(orders){
+			var that =this;
+			this._$wrap = this.get$Wrap();
+			this.initHandlers();
+			this._ordersViews = [];
+			if (!_.isEmpty(orders)){
+				orders.forEach(function(order){
+					that.addOrderView(order)
+				});
+			}
+		},
+		
+		addOrderView : function(orderView){
+			var that = this;
+			this._ordersViews.push(orderView);
+			if (this._ordersViews.length === 1){
+				orderView._$wrap.prepend(function(){
+					var $cell = that.getUserCell();
+					$(".user-img", $cell).attr('src', orderView._order._details.userImg || 'http://www.jetcharters.com/bundles/jetcharterspublic/images/image-not-found.jpg');
+					$(".user-name", $cell).html(orderView._order._user._name);
+					return $cell;
+				});
+				this._$wrap.prepend(orderView._$wrap);
+			}else{
+				this._$wrap.find('tr').first().after(orderView._$wrap);
+			}
+			this._total += Number(orderView._order._itemPrice);
+			this.updateView();
+			
+		},
+		
+		getUserCell : function(){
+			return $("#admin-user-cell").clone().removeAttr("id");
+		},
+		
+		removeOrderView : function(orderView){
+			this._total -= Number(orderView._order._price);
+			this._ordersViews.splice(this._ordersViews.indexOf(orderView),1);
+			this.updateView();
+		},
+		
+		updateView: function(){
+			this._$wrap.find('tr').first().find('td').first().attr('rowspan', this._ordersViews.length + 1);
+			$(".user-total", this._$wrap).html(this._total);
+		},
+		
+		initHandlers : function(){
+			var that = this;
+		},
+		get$Wrap: function(){
+			return $('<tbody class="user-order"><tr><td colspan="3">Total</td><td colspan="1" class="user-total"></td></tr></tbody>');
+		},
+		
+	});
+	
+	utils.UserOrderView = utils.HistoryOrderView.extend({
+		
+		init: function(order){
+			this._super(order);
+		},
+		
+		initHandlers : function(){
+			var that = this;
+		},
+		
+		get$Wrap: function(){
+			return $('#order-admin-view-mock').clone().removeAttr('id');
 		},
 		
 		
@@ -873,7 +1027,7 @@ var utils = utils || {};
 	        	 },
 	         success: function(data){
 					if (!_.isEmpty(data)){
-						callback({name:data.name.familyName + " " + data.name.givenName, gid:data.id, company:data.domain});
+						callback({name:data.name.familyName + " " + data.name.givenName, gid:data.id, company:data.domain, img: data.image ? data.image.url : undefined});
 					}
 				} 
 	      });
@@ -904,6 +1058,10 @@ var utils = utils || {};
 		return order._status === 'new';
 	}
 	
+	utils.isOrderCommited = function(order){
+		return order._status === 'commited';
+	}
+	
 	utils.getParser = function(restaurant){
 		if (restaurant === utils.ANDYS_RESTAURANT_CONST.name){
 			return new utils.AndysParser();
@@ -911,9 +1069,9 @@ var utils = utils || {};
 	};
 	
 	utils.mapUser = function(userInfo, token){
-		var user = new utils.OAuthUSER(userInfo.gid, userInfo.name, userInfo.company);
+		var user = new utils.OAuthUSER(userInfo.gid, userInfo.name, userInfo.company, undefined, userInfo.img);
 		if (token){
-			user._accessToken =token;
+			user._accessToken = token;
 		}
 		return user;
 	};

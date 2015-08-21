@@ -15,66 +15,111 @@
 <link rel="stylesheet" href="css/popup.css">
 </head>
 <body>
-	<div id="user-container" class="lead">
-		<span class='user-name'></span> <small><span class='user-email muted'></span></small>
-	</div>
-	<br />
-	<div id="orders-container">
-		<i class="icon-shopping-cart"></i><br>
-		<div class="progress progress-striped active">
-				<div class="bar" style='width: 100%;'></div>
-		</div>
-	</div>
-	<br />
-	<div id="history">
-		<div class="accordion" id="accordion2">
-			<div class="accordion-group">
-				<div class="accordion-heading">
-					<a class="accordion-toggle" data-toggle="collapse"
-						data-parent="#accordion2" href="#collapseOne"> Show history </a>
-				</div>
-				<div id="collapseOne" class="accordion-body collapse">
-					<table class="table table-hover accordion-inner">
-						<thead>
-								<tr>
-									<th></th>
-									<th><small>Meal</small></th>
-									<th>Restaurant</th>
-									<th>Price</th>
-									<th>Date</th>
-									<th>Status</th>
-								</tr>
-							</thead>
-						<tbody id="history-orders-container">
-						</tbody>	
-					</table>
+	<ul id="tabs" class="nav nav-tabs">
+		<li class="active"><a href="#home" data-toggle="tab" >Home</a></li>
+		<li><a href="#administrator" data-toggle="tab">Administrate</a></li>
+	</ul>
+	<div class="tab-content">
+		<div  class="tab-pane active" id="home">
+			<div id="user-container" class="lead">
+				<span class='user-name'></span> <small><span
+					class='user-email muted'></span></small>
+			</div>
+			<br />
+			<div id="orders-container">
+				<i class="icon-shopping-cart"></i><br>
+				<div class="progress progress-striped active">
+					<div class="bar" style='width: 100%;'></div>
 				</div>
 			</div>
+			<br />
+			<div id="history">
+				<div class="accordion" id="accordion2">
+					<div class="accordion-group">
+						<div class="accordion-heading">
+							<a class="accordion-toggle" data-toggle="collapse"
+								data-parent="#accordion2" href="#collapseOne"> Show history
+							</a>
+						</div>
+						<div id="collapseOne" class="accordion-body collapse">
+							<table class="table table-hover accordion-inner">
+								<thead>
+									<tr>
+										<th></th>
+										<th><small>Meal</small></th>
+										<th><small>Restaurant</small></th>
+										<th><small>Price</small></th>
+										<th><small>Date</small></th>
+										<th><small>Status</small></th>
+									</tr>
+								</thead>
+								<tbody id="history-orders-container">
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div  class="tab-pane" id="administrator">
+			<table class="table table-hover table-condensed" id="administrate-orders-container">
+				<thead>
+					<tr>
+						<th></th>
+						<th></th>
+						<th><small>Meal</small></th>
+						<th><small>Restaurant</small></th>
+						<th><small>Price</small></th>
+					</tr>
+				</thead>
+			</table>
 		</div>
 	</div>
 	<br>
 	<script type="text/javascript" src="popup.js"></script>
 	<div id="mocks" style="display: none">
-		<div id="order-view-mock" class="order row" style="display:none">
+		<div id="order-view-mock" class="order row" style="display: none">
 			<div class="span2">
 				<img src="" class="preview-item-img img-rounded">
 			</div>
 			<div class="span3 order-details">
-					<span class="muted"><small>Meal</small></span> <strong><span class="item-name"></span></strong><br>
-					<span class="muted"><small>Restaurant</small></span> <strong><span class="item-restaurant"></span></strong><br>
-					<span class="muted"><small>Price</small></span> <strong><span class="item-price"></span></strong><br>
+				<span class="muted"><small>Meal</small></span> <strong><span
+					class="item-name"></span></strong><br> <span class="muted"><small>Restaurant</small></span>
+				<strong><span class="item-restaurant"></span></strong><br> <span
+					class="muted"><small>Price</small></span> <strong><span
+					class="item-price"></span></strong><br>
 			</div>
 			<button class="close remove-order">&times;</button>
 		</div>
 		<table>
 			<thead>
 				<tr id="order-history-view-mock">
-					<td><img src="" class="preview-item-img img-rounded preview-item-img-small"></td>
+					<td><img src=""
+						class="preview-item-img img-rounded preview-item-img-small"></td>
 					<td><small><span class="item-name"></span></small></td>
 					<td><small><span class="item-restaurant"></span></small></td>
 					<td><small><span class="item-price"></span></small></td>
 					<td><small><span class="item-date"></span></small></td>
 					<td><small><span class="item-status"></span></small></td>
+				</tr>
+			</thead>
+			<tbody id="history-orders-container">
+			</tbody>
+		</table>
+		<table>
+			<thead>
+				<tr id="order-admin-view-mock">
+					<td><img src=""
+						class="preview-item-img img-rounded preview-item-img-small"></td>
+					<td><small><span class="item-name"></span></small></td>
+					<td><small><span class="item-restaurant"></span></small></td>
+					<td><small><span class="item-price"></span></small></td>
+				</tr>
+				<tr>
+					<td id="admin-user-cell"><img src=""
+						class="user-img img-rounded"><br>
+						<span class="user-name"></span>	
+					</td>
 				</tr>
 			</thead>
 			<tbody id="history-orders-container">

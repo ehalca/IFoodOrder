@@ -26,6 +26,15 @@ filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ededed', end
     left: -60px;
 }
 
+.user-order{
+	       background-color: #f7f7f9;
+}
+
+.table td {
+   text-align: center;   
+   vertical-align: middle;
+}
+
 #orders-container{
 	border-radius: 4px;
 	border:1px solid #ebe8eb;
