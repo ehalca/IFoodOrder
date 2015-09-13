@@ -413,7 +413,8 @@ var utils = utils || {};
 					cells:{url:'https://spreadsheets.google.com/feeds/cells/{id}/1/private/full/batch', type:'POST'},
 					dynamic:{
 							addOrder:{key:'http://schemas.google.com/g/2005#post', type:'POST'},
-							deleteOrder:{key:'self', type:'DELETE'}
+							deleteOrder:{key:'self', type:'DELETE'},
+                                                        updateOrder:{key:'self', type:'PUT'}
 						}};
 		},
 		
@@ -550,20 +551,17 @@ var utils = utils || {};
 		},
 		
 		
-		findDocument: function(callback, shared){
+		findDocument: function(callback){
 			var that = this;
 			$.ajax({
 		         url: that._endPoints.find.url+'?key='+utils.API_KEY,
-		         data: {q:"title='"+that._documentName+"' and trashed=false" + (shared ? " and sharedWithMe=true" : "")},
+		         data: {q:"title='"+that._documentName+"' and trashed=false", corpus:"DOMAIN"},
 		         type: that._endPoints.find.type,
 		         beforeSend: function(xhr){
 		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
 		        	 },
 		         success: function(data){
 						if (!_.isEmpty(data)){
-							if (_.isEmpty(data.items) && shared){
-								return that.findDocument(callback, false);
-							}
 							var id = !_.isEmpty(data.items) ? data.items[0].id : undefined;
 							callback(id);
 						}else{
@@ -573,7 +571,7 @@ var utils = utils || {};
 					},
 				 error: function( jqXHR,  textStatus, errorThrown ){
 					 if (true){//TBD check for usage limit error
-						 that.findDocument(callback, shared);
+						 that.findDocument(callback);
 					 }
 				 }
 		      });
@@ -622,6 +620,37 @@ var utils = utils || {};
 		         success: function(data){
 						if (!_.isEmpty(data)){
 							callback(new utils.GOrder(data.entry));
+						}else{
+							//TBD process error
+							console.log(data);
+						}
+					},
+				 error: function( jqXHR,  textStatus, errorThrown ){
+					 if (true){//TBD check for usage limit error
+					 }
+				 }
+		      });
+		},
+                
+                updateOrder : function(order, callback){
+			if (!order._gEntry){
+				console.log(order + ' cant delete unsaved order!');
+				return;
+			}
+			var that = this;
+			var link = that.getLinkFor(that._endPoints.dynamic.updateOrder.key, order._gEntry.link);
+			$.ajax({
+		         url: link.href.replace('public','private') +'?key='+utils.API_KEY,
+		         data: order.toGJSON(),
+		         contentType:link.type,
+		         type: that._endPoints.dynamic.updateOrder.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._user._accessToken);
+		        		 xhr.setRequestHeader('If-Match', '*');
+		        	 },
+		         success: function(data){
+						if (_.isEmpty(data)){
+							callback(data);
 						}else{
 							//TBD process error
 							console.log(data);
@@ -683,28 +712,60 @@ var utils = utils || {};
 	utils.OrderController = utils.Class.extend({
 		
 		_view : null,
+                
+                _orders : null,
+                
+                _historyView : null,
 		
 		_events: null,
 		
 		init: function(view){
 			var that = this;
-			this._events = {orderDeleted: new utils.Event()};
+			this._events = {orderDeleted: new utils.Event(),orderUpdated: new utils.Event()};
 			this._view = view;
+                        this._orders = [];
+                        this._historyView = new utils.HistoryOrdersView();
 			this._view._events.deleted.subscribe(function(order, callback){
 				that.deleteOrder(order, callback);
 			});
+                        
+                        this._view._events.confirmClicked.subscribe(function(view, callback){
+                            that.confirm(callback);
+                        });
 		},
 		
 		deleteOrder : function(order, callback){
+                    var that = this;
 			this._events.orderDeleted.publish(order, function(){
+                                that._orders.splice(that._orders.indexOf(order),1);
 				callback();
 			});
 		},
 		
 		addOrder: function(order){
+                    this._orders.push(order);
 			this._view.addView(new utils.OrderView(order));
-		}
+		},
+                
+                addHistoryOrder: function(order){
+                    this._historyView.addView(new utils.HistoryOrderView(order));
+                },
 		
+                confirm : function(callback){
+                    var that = this;
+                    var count = this._orders.length;
+                    function done(){
+                        if (count === 0){
+                            callback();
+                        }else{
+                            count --;
+                        }
+                    };
+                    this._orders.forEach(function(order){
+                        order._status = 'commited';
+                        that._events.orderUpdated.publish(order, done);
+                    });
+                }
 		
 	});
 	
@@ -715,12 +776,15 @@ var utils = utils || {};
 		_events : null,
 		
 		_$wrap : null,
+                
+                _$confirm : null,
 		
 		init: function(views){
 			var that = this;
 			this._$wrap = this.get$Wrap();
+                        this._$confirm = $('.confirm', this._$wrap).hide();
 			this._views = views || [];
-			this._events = {deleted: new utils.Event(), viewsChanged: new utils.Event()};
+			this._events = {deleted: new utils.Event(), viewsChanged: new utils.Event(), confirmClicked: new utils.Event()};
 			this._views.forEach(function(view){
 				that.addView(view);
 			});
@@ -728,7 +792,16 @@ var utils = utils || {};
 			this._events.viewsChanged.subscribe(function(){
 				that.checkContainer();
 			});
+                        this._$confirm.off('click').on('click', function(){
+                            that._events.confirmClicked.publish(that, function(){
+                                that.updateViews();
+                            });
+                        });
 		},
+                
+                updateViews: function(){
+                    
+                },
 		
 		deleteView : function(view, callback){
 			var that = this;
@@ -755,8 +828,10 @@ var utils = utils || {};
 			if (this._views.length === 0){
 				this._$noOrders = $("<p class='muted'>no orders, yet...</p>");
 				this._$wrap.append(this._$noOrders);
+                                this._$confirm.hide();
 			}else{
 				this._$noOrders.remove();
+                                this._$confirm.show();
 			}
 		},
 		get$Wrap: function(){
@@ -784,10 +859,18 @@ var utils = utils || {};
 	utils.AdminOrdersView = utils.HistoryOrdersView.extend({
 		
 		_userViews : null,
+                
+                _$checkOutBtn : null,
 		
 		init: function(){
+                        var that = this;
+                        this._$checkOutBtn = $('.checkout', this.get$Wrap().parent());
 			this._super();
 			this._userViews = {};
+                        this._events.checkoutClicked = new utils.Event();
+                        this._$checkOutBtn.click(function(){
+                            that._events.checkoutClicked.publish(this);
+                        });
 		},
 		
 		
@@ -816,8 +899,10 @@ var utils = utils || {};
 			if (this._views.length === 0){
 				this._$noOrders = $("<tr><td class='muted' colspan='5'>no orders, yet...</td></tr>");
 				this._$wrap.append(this._$noOrders);
+                                this._$checkOutBtn.hide();
 			}else{
 				this._$noOrders.remove();
+                                this._$checkOutBtn.show();
 			}
 		},
 		
@@ -838,7 +923,8 @@ var utils = utils || {};
 				this._$refreshOrders.remove();
 				this.checkContainer();
 			}
-		}
+		},
+                
 	});
 	
 	utils.OrderView = utils.Class.extend({
@@ -923,6 +1009,45 @@ var utils = utils || {};
 		
 		
 	});
+        
+        utils.AdminOrderProccessor = utils.Class.extend({
+            
+            _view : null,
+            
+            _orders: null,
+            
+            init : function(view){
+                var that = this;
+                this._view = view;
+                this._orders = {};
+                this._view._events.checkoutClicked.subscribe(function(view){
+                    that.checkOut();
+                });
+            },
+            
+            addUserOrder: function(order){
+                this.processOrder(order);
+                this._view.addView(new utils.UserOrderView(order));
+            },
+            
+            deleteOrders: function(){
+                this._view.deleteViews();
+            },
+            
+            deleteOrder: function(order){
+                
+            },
+            
+            processOrder: function(order){
+                
+            },
+            
+            checkOut: function(){
+                
+            },
+            
+            
+        });
 	
 	utils.UserView = utils.Class.extend({
 		

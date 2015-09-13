@@ -14,12 +14,11 @@ document.addEventListener('DOMContentLoaded', function() {
 		chrome.extension.getBackgroundPage().orderManager.getAuthenticateUserOrders(function(orders){
 			$(".progress", "#orders-container").remove();
 			window.orderController = new utils.OrderController(new utils.OrdersView());
-			var historyView = new utils.HistoryOrdersView();
 			orders.forEach(function(order){
 				if (utils.isOrderActive(order)){
-					window.orderController._view.addView(new utils.OrderView(order));
+					window.orderController.addOrder(order);
 				}else{
-					historyView.addView(new utils.HistoryOrderView(order));
+					window.orderController.addHistoryOrder(order);
 				}
 			});
 			window.orderController._events.orderDeleted.subscribe(function(order, callback){
@@ -27,6 +26,11 @@ document.addEventListener('DOMContentLoaded', function() {
 					callback();
 				});
 			});
+                        window.orderController._events.orderUpdated.subscribe(function(order, callback){
+                            chrome.extension.getBackgroundPage().orderManager._db.updateOrder(order, function(){
+					callback();
+                            });
+                        });
 		});
 //		chrome.runtime.onMessage.addListener(function( message, sender, sendResponse) {
 //			console.log(message);
@@ -41,11 +45,11 @@ document.addEventListener('DOMContentLoaded', function() {
 	chrome.extension.getBackgroundPage().orderManager._auth.authenticateWithToken(false, onAuthSuccess, onAuthFail);
 	
 	function updateAdministratorViews(){
-		window.administratorView = window.administratorView || new utils.AdminOrdersView();
-		window.administratorView.deleteViews();
-		window.administratorView.refreshing(true);
+		window.adminProcessor = window.adminProcessor ||  new utils.AdminOrderProccessor(new utils.AdminOrdersView());
+		window.adminProcessor.deleteOrders();
+		window.adminProcessor._view.refreshing(true);
 		chrome.extension.getBackgroundPage().orderManager._db.getAllOrders(function(orders){
-			window.administratorView.refreshing(false);
+			window.adminProcessor._view.refreshing(false);
 			var comittedOrders = [];
 			orders.forEach(function(order){
 				if (utils.isOrderCommited(order)){
@@ -54,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			});
 			if (!_.isEmpty(comittedOrders)){
 				comittedOrders.forEach(function(order){
-					window.administratorView.addView(new utils.UserOrderView(order));
+                                    window.adminProcessor.addUserOrder(order);
 				});
 			}
 		});
