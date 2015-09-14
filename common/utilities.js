@@ -799,9 +799,10 @@ var utils = utils || {};
                         });
 		},
                 
-                updateViews: function(){
-                    
-                },
+        updateViews: function(){
+        	this._views.forEach(function(view){view.updateView();});
+        	this.checkContainer();
+        },
 		
 		deleteView : function(view, callback){
 			var that = this;
@@ -959,6 +960,10 @@ var utils = utils || {};
 					});
 				});
 			});
+		},
+		
+		updateView: function(){
+			
 		}
 		
 		
@@ -1116,15 +1121,26 @@ var utils = utils || {};
 		
 		init: function(order){
 			this._super(order);
+			this.updateView();
 		},
 		
 		initHandlers : function(){
 			var that = this;
 		},
 		
+		
 		get$Wrap: function(){
 			return $('#order-admin-view-mock').clone().removeAttr('id');
 		},
+		
+		updateView: function(){
+			this._super();
+			if (this._order._status === 'commited'){
+				this._$wrap.addClass('order-commited');
+			}else{
+				this._$wrap.removeClass('order-commited');
+			}
+		}
 		
 		
 	});
@@ -1180,7 +1196,7 @@ var utils = utils || {};
 	};
 	
 	utils.isOrderActive = function(order){
-		return order._status === 'new';
+		return order._status === 'new' || order._status === 'commited';
 	}
 	
 	utils.isOrderCommited = function(order){

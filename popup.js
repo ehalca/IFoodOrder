@@ -32,9 +32,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             });
                         });
 		});
-//		chrome.runtime.onMessage.addListener(function( message, sender, sendResponse) {
-//			console.log(message);
-//		});
 	};
 	var onAuthFail = function(user){
 		var $click = $('<a href="#">Change user</a>');

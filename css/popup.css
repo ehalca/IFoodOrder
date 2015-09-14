@@ -120,3 +120,9 @@ div.order:hover{
     margin: 0px;
     left:0px;
 }
+
+.order-commited{
+	    border-color: #4890E8;
+    border-width: 2px;
+    border-style: solid;
+}
