@@ -3,6 +3,8 @@ var utils = utils || {};
 
 (function() {
 	
+        utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md"};
+        
 	utils.API_KEY = "AIzaSyC821H6-hmGKB4w_FaSnmDPN5_GcFJ8fbI";
 	
 	var initializing = false, fnTest = /xyz/.test(function() {
@@ -266,7 +268,7 @@ var utils = utils || {};
 			result['gsx:user'] = this._user._name;
 			result['gsx:restaurant'] = this._restaurant;
 			result['gsx:item'] = this._itemName;
-			result['gsx:itemId'] = this._itemId;
+			result['gsx:itemid'] = this._itemId;
 			result['gsx:price'] = this._itemPrice;
 			result['gsx:date'] = this._date;
 			result['gsx:status'] = this._status;
@@ -649,7 +651,7 @@ var utils = utils || {};
 		        		 xhr.setRequestHeader('If-Match', '*');
 		        	 },
 		         success: function(data){
-						if (_.isEmpty(data)){
+						if (!_.isEmpty(data)){
 							callback(data);
 						}else{
 							//TBD process error
@@ -730,7 +732,11 @@ var utils = utils || {};
 			});
                         
                         this._view._events.confirmClicked.subscribe(function(view, callback){
-                            that.confirm(callback);
+                            that.confirm(function(result){
+                                if (result){
+                                }
+                                callback();
+                            });
                         });
 		},
 		
@@ -755,7 +761,7 @@ var utils = utils || {};
                     var that = this;
                     var count = this._orders.length;
                     function done(){
-                        if (count === 0){
+                        if (count === 1){
                             callback();
                         }else{
                             count --;
@@ -861,17 +867,11 @@ var utils = utils || {};
 		
 		_userViews : null,
                 
-                _$checkOutBtn : null,
 		
 		init: function(){
                         var that = this;
-                        this._$checkOutBtn = $('.checkout', this.get$Wrap().parent());
 			this._super();
 			this._userViews = {};
-                        this._events.checkoutClicked = new utils.Event();
-                        this._$checkOutBtn.click(function(){
-                            that._events.checkoutClicked.publish(this);
-                        });
 		},
 		
 		
@@ -900,10 +900,8 @@ var utils = utils || {};
 			if (this._views.length === 0){
 				this._$noOrders = $("<tr><td class='muted' colspan='5'>no orders, yet...</td></tr>");
 				this._$wrap.append(this._$noOrders);
-                                this._$checkOutBtn.hide();
 			}else{
 				this._$noOrders.remove();
-                                this._$checkOutBtn.show();
 			}
 		},
 		
@@ -945,6 +943,7 @@ var utils = utils || {};
 			$('.item-price', this._$wrap).html(this._order._itemPrice);
 			$('.preview-item-img', this._$wrap).attr('src',utils.getParser(this._order._restaurant).getItemImage(this._order));
 			this.initHandlers();
+                        this.updateView();
 		},
 		
 		get$Wrap: function(){
@@ -963,7 +962,11 @@ var utils = utils || {};
 		},
 		
 		updateView: function(){
-			
+			if (this._order._status === 'commited'){
+				this._$wrap.addClass('order-commited');
+			}else{
+				this._$wrap.removeClass('order-commited');
+			}
 		}
 		
 		
@@ -1011,6 +1014,9 @@ var utils = utils || {};
 		get$Wrap: function(){
 			return $('#order-history-view-mock').clone().removeAttr('id');
 		},
+                
+                updateView: function(){
+		}
 		
 		
 	});
@@ -1021,13 +1027,13 @@ var utils = utils || {};
             
             _orders: null,
             
+            _totalController: null,
+            
             init : function(view){
                 var that = this;
+                this._totalController = new utils.TotalController();
                 this._view = view;
                 this._orders = {};
-                this._view._events.checkoutClicked.subscribe(function(view){
-                    that.checkOut();
-                });
             },
             
             addUserOrder: function(order){
@@ -1037,6 +1043,7 @@ var utils = utils || {};
             
             deleteOrders: function(){
                 this._view.deleteViews();
+                this._totalController.clear();
             },
             
             deleteOrder: function(order){
@@ -1044,7 +1051,7 @@ var utils = utils || {};
             },
             
             processOrder: function(order){
-                
+                this._totalController.addOrder(order);
             },
             
             checkOut: function(){
@@ -1121,7 +1128,6 @@ var utils = utils || {};
 		
 		init: function(order){
 			this._super(order);
-			this.updateView();
 		},
 		
 		initHandlers : function(){
@@ -1134,12 +1140,149 @@ var utils = utils || {};
 		},
 		
 		updateView: function(){
-			this._super();
-			if (this._order._status === 'commited'){
-				this._$wrap.addClass('order-commited');
-			}else{
-				this._$wrap.removeClass('order-commited');
-			}
+			
+		}
+		
+	});
+        
+        utils.TotalController = utils.Class.extend({
+            
+            _view : null,
+            
+            _orders: null,
+            
+            init: function(view){
+                var that = this;
+                this._view = view || new utils.TotalsView();
+                this._orders = {};
+            },
+            
+            addOrder: function(order){
+                var totalOrder = this._orders[order._restaurant];
+                if (!totalOrder){
+                    this._orders[order._restaurant] = {total:{restaurant:order._restaurant, total:0},orders:[]};
+                    totalOrder = this._orders[order._restaurant];
+                    var totalView = new utils.TotalView(totalOrder);
+                    totalView._events.checkoutClicked.subscribe(function(view){
+                        utils.checkOutOrders(view._orders.total.restaurant,view._orders.orders, function(){
+                            
+                        });
+                    });
+                    totalView._events.retryClicked.subscribe(function(view){
+                        
+                    });
+                    totalView._events.doneClicked.subscribe(function(view){
+                        
+                    });
+                    this._view.addView(totalView);
+                }
+                var found = false;
+                totalOrder.orders.forEach(function(o){
+                    if (!found && o._gEntry.id.$t === order._gEntry.id.$t){
+                        found = true;
+                    }
+                });
+                if (!found){
+                    totalOrder.total.total += Number(order._itemPrice);
+                    totalOrder.orders.push(order);
+                }
+                this._view.updateView();
+            },
+            
+            clear: function(){
+                 this._orders = {};
+                 this._view.clear();
+            }
+            
+        });
+        
+        utils.TotalsView = utils.Class.extend({
+           
+            _$wrap: null,
+            
+            _views: null,
+            
+            init:function(){
+                this._$wrap = $('#administrate-totals-container');
+                this._views = [];
+                this.updateView();
+            },
+            
+            addView: function(totalView){
+                this._views.push(totalView);
+                this._$wrap.append(totalView._$wrap);
+            },
+            
+            updateView: function(){
+                if (this._views.length === 0){
+                    this.$noOrders = $('<tr><td colspan="3"></td></tr>');
+                    this._$wrap.html(this.$noOrders);
+                }else{
+                    if (this.$noOrders){
+                        this.$noOrders.remove();
+                        this.$noOrders = undefined;
+                    }
+                    this._views.forEach(function(view){
+                        view.updateView();
+                    });
+                }
+            },
+            
+            clear: function(){
+                this._views.forEach(function(view){
+                    view._$wrap.remove();
+                });
+                this._views = [];
+            }
+            
+            
+        });
+        
+        utils.TotalView = utils.Class.extend({
+		
+		_orders : null,
+		
+		_events : null,
+		
+		_$wrap : null,
+                
+                _$checkOutBtn: null,
+                
+                _$retryBtn : null,
+                
+                _$doneBtn : null,
+		
+		init: function(orders){
+			this._orders = orders;
+			this._$wrap = this.get$Wrap();
+                        this._$checkOutBtn = $('.checkout-btn', this._$wrap);
+                        this._$retryBtn = $('.retry-btn', this._$wrap);
+                        this._$doneBtn = $('.done-btn', this._$doneBtn);
+                        this._events = {checkoutClicked : new utils.Event(), retryClicked: new utils.Event(), doneClicked: new utils.Event()};
+                        this.initHandlers();
+                        this.updateView();
+		},
+		
+		get$Wrap: function(){
+			return $('#total-admin-view-mock').clone().removeAttr('id');
+		},
+		
+		initHandlers : function(){
+			var that = this;
+                        this._$checkOutBtn.click(function(){
+                            that._events.checkoutClicked.publish(that);
+                        });
+                         this._$retryBtn.click(function(){
+                            that._events.retryClicked.publish(that);
+                        });
+                         this._$doneBtn.click(function(){
+                            that._events.doneClicked.publish(that);
+                        });
+		},
+		
+		updateView: function(){
+                     $('.total-restaurant', this._$wrap).html(this._orders.total.restaurant);
+		     $('.total-total', this._$wrap).html(this._orders.total.total);   
 		}
 		
 		
@@ -1178,7 +1321,7 @@ var utils = utils || {};
 		var feed = '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:batch="http://schemas.google.com/gdata/batch" xmlns:gs="http://schemas.google.com/spreadsheets/2006">';
 		
 		var result = [];
-		['user','restaurant','item','itemId','price','date','status','details'].forEach(function(header, index){
+		['user','restaurant','item','itemid','price','date','status','details'].forEach(function(header, index){
 			var pos = index +1;
 			var doc ='<entry'+
 				    '>'+
@@ -1202,6 +1345,10 @@ var utils = utils || {};
 	utils.isOrderCommited = function(order){
 		return order._status === 'commited';
 	}
+        
+        utils.checkOutOrders = function(restaurant, orders, callback){
+            chrome.extension.getBackgroundPage().checkOutOrders(restaurant, orders, callback);
+	};
 	
 	utils.getParser = function(restaurant){
 		if (restaurant === utils.ANDYS_RESTAURANT_CONST.name){

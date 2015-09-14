@@ -10,11 +10,13 @@ var utils = utils || {};
 		_orders : null,
 		
 		init : function(){
+                    var that = this;
 			this._orders = [];
 			this._event = {orderAdded : new utils.Event(), orderDeleted : new utils.Event()};
 			if (this.hasItems()){
 				this.parse();
-			}
+			};
+                    
 		},
 		
 		hasItems : function (){
@@ -39,8 +41,23 @@ var utils = utils || {};
 		
 		getItemImage : function(order){
 			
-		}
+		},
+                
+                proceedToCheckout: function(orders, callback){
+                    //called only inside page
+                }
 		
 	});
 	
 })();
+
+chrome.runtime.onMessage.addListener(
+    function (message, sender, sendResponse) {
+        if (message.orders && window.parser) {
+            window.parser.proceedToCheckout(message.orders, sendResponse);
+        } else {
+            if (sendResponse) {
+                sendResponse();
+            }
+    }
+});

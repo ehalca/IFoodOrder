@@ -76,9 +76,15 @@
 					</tr>
 				</thead>
 			</table>
-                    <div>
-                        <button class="btn btn-small btn-primary checkout" type="button">CHECKOUT</button>
-                    </div>
+                        <table class="table table-hover table-condensed" id="administrate-totals-container">
+				<thead>
+					<tr>
+						<th><small>Restaurant</small></th>
+						<th><small>Total</small></th>
+                                                <th></th>
+					</tr>
+				</thead>
+			</table>
 		</div>
 	</div>
 	<br>
@@ -127,6 +133,15 @@
 						<span class="user-name"></span>	
 					</td>
 				</tr>
+                                <tr id="total-admin-view-mock">
+                                    <td><small><span class="total-restaurant"></span></small></td>
+                                    <td><small><span class="total-total"></span></small></td>
+                                    <td><small><span class="total-action">
+                                                <button class="btn btn-small btn-primary checkout-btn" type="button">CHECKOUT</button>
+                                                <button class="btn btn-small btn-primary retry-btn" type="button">RETRY</button>
+                                                <button class="btn btn-small btn-primary done-btn" type="button">DONE</button>
+                                            </span></small></td>
+                                </tr>
 			</thead>
 			<tbody id="history-orders-container">
 			</tbody>
