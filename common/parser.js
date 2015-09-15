@@ -52,12 +52,14 @@ var utils = utils || {};
 })();
 
 chrome.runtime.onMessage.addListener(
-    function (message, sender, sendResponse) {
+    function (message, sender, sendResponse, done) {
         if (message.orders && window.parser) {
-            window.parser.proceedToCheckout(message.orders, sendResponse);
+            window.parser.proceedToCheckout(message.orders, function(result){
+            	sendResponse(result);
+            	return;
+            });
+            return true;
         } else {
-            if (sendResponse) {
-                sendResponse();
-            }
+        	return false;
     }
 });

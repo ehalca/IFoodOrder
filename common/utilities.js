@@ -876,10 +876,10 @@ var utils = utils || {};
 		
 		
 		addView: function(view){
-			var userView = this._userViews[view._order._user]; 
+			var userView = this._userViews[view._order._user._name]; 
 			if (!userView){
 				userView = new utils.UserView();
-				this._userViews[view._order._user] = userView;
+				this._userViews[view._order._user._name] = userView;
 				this._super(userView);
 			}
 			userView.addOrderView(view);

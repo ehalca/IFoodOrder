@@ -42,7 +42,7 @@ $(document).ready(function() {
                         addtocart(Number(order.id),2, function(){
                             if (count === 1){
                                 if (callback){
-                                    callback();
+                                    callback(true);
                                 }
                             }else{
                                 count--;
@@ -75,9 +75,8 @@ $(document).ready(function() {
 							souce=0;
 							korj=0;
 							quan=$('#quantype1_'+id).val();
-							$.post('/pages/addtocart/',{id:id,topp:topp,souce:souce,korj:korj,quan:quan},function(data) {
+							$.post('/pages/addtocart/',{id:id,topp:topp,souce:souce,korj:korj,quan:1},function(data) {
 								dta=data.split('<>');
-								calcheader(dta[1],dta[0]);
                                                                 callback();
 							});
 						} else if (type==3) {
@@ -98,17 +97,14 @@ $(document).ready(function() {
 								});
 							}
 							console.log(topp);
-							quan=$('#light_window .quantype2_'+id).val();
-							$.post('/pages/addtocart/',{id:id,topp:topp,souce:souce,korj:korj,quan:quan},function(data) {
+							$.post('/pages/addtocart/',{id:id,topp:topp,souce:souce,korj:korj,quan:1},function(data) {
 								dta=data.split('<>');
-								calcheader(dta[1],dta[0]);
                                                                 callback();
 							});
 						} else {
 							topp=0;
 							souce=0;
 							korj=0;
-							quan=$('#light_window .quantype2_'+id).val();
 							if ($('#light_window select.mw_select').length>0) {
 								souce=$('#light_window select.mw_select').val();
 							}
@@ -133,9 +129,8 @@ $(document).ready(function() {
 								});
 							}
 							
-							$.post('/pages/addtocart/',{id:id,topp:topp,souce:souce,korj:korj,quan:quan},function(data) {
+							$.post('/pages/addtocart/',{id:id,topp:topp,souce:souce,korj:korj,quan:1},function(data) {
 								dta=data.split('<>');
-								calcheader(dta[1],dta[0]);
                                                                 callback();
 							});
 						}

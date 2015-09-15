@@ -17,10 +17,11 @@
         
     chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
         if (window.messages[tabId] && changeInfo.status == "complete"){
-            chrome.tabs.sendMessage(tab.id, window.messages[tabId], {}, function () {
-                             window.messages[tabId].callback();
-                             delete window.messages[tabId];
-                        });
+        	var message = window.messages[tabId];
+        	delete window.messages[tabId];
+            chrome.tabs.sendMessage(tab.id, message, function (response) {
+            	console.log('message sent, activating!');
+            });
      }
     });
 })();
