@@ -1404,7 +1404,11 @@ var utils = utils || {};
 	        	 },
 	         success: function(data){
 					if (!_.isEmpty(data)){
-						callback({name:data.name.familyName + " " + data.name.givenName, gid:data.id, company:data.domain, img: data.image ? data.image.url : undefined});
+						var name = data.name.familyName + " " + data.name.givenName;
+						if (name.trim().length === 0){
+							name = data.emails[0].value;
+						}
+						callback({name:name, gid:data.id, company:data.domain, img: data.image ? data.image.url : undefined});
 					}
 				} 
 	      });
