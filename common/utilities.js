@@ -3,7 +3,9 @@ var utils = utils || {};
 
 (function() {
 	
-        utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md"};
+        utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md", checkOutUrl:"http://www.andys.md/ro/pages/cart/"};
+        utils.SUPPORTED_RESTAURANTS = [utils.ANDYS_RESTAURANT_CONST];
+        
         
 	utils.API_KEY = "AIzaSyC821H6-hmGKB4w_FaSnmDPN5_GcFJ8fbI";
 	
@@ -117,7 +119,7 @@ var utils = utils || {};
 				var token = that._google.getAccessToken();
 				if (!_.isEmpty(token)){
 					utils.getUserInfo(undefined, token, function(userInfo){
-						var user  = utils.mapUser(userInfo, token);
+						var user = utils.mapUser(userInfo, token);
 						if (_.isEmpty(user._company)){
 							that.onNoDomainAuthentication(function(){
 								if (fail){
@@ -329,6 +331,9 @@ var utils = utils || {};
 					if (that._auth._user){
 						that._db.saveNewOrder(new utils.ORDER(message.restaurant,message.name, message.itemId,  message.price, that._auth._user, message.date, message.status, {imagePath:message.imagePath}), function(order){
 							sendResponse({error:false});
+							chrome.browserAction.getBadgeText({}, function (result){
+								chrome.browserAction.setBadgeText({text:(Number(result)+1).toString()});
+							});
 						});
 					}else{
 						sendResponse({error:true, message:'not authenticated'});
@@ -874,6 +879,12 @@ var utils = utils || {};
 			this._userViews = {};
 		},
 		
+		updateView:function(){
+			var that = this;
+			Object.keys(this._userViews).forEach(function(user){
+				that._userViews[user].updateView();
+			});
+		},
 		
 		addView: function(view){
 			var userView = this._userViews[view._order._user._name]; 
@@ -888,7 +899,7 @@ var utils = utils || {};
 		deleteView : function(user, callback){
 			var view = this._userViews[user];
 			view._$wrap.remove();
-			this._userViews[user] = undefined;
+			delete this._userViews[user];
 			this._super(view, callback);
 		},
 		
@@ -980,6 +991,7 @@ var utils = utils || {};
 			var sDate = "" + date.getDate() + date.getMonth() + date.getFullYear()
 			$('.item-date', this._$wrap).html(sDate);
 			$('.item-status', this._$wrap).html(this._order._status);
+			this.updateView();
 		},
 		
 		initHandlers : function(){
@@ -1034,6 +1046,9 @@ var utils = utils || {};
                 this._totalController = new utils.TotalController();
                 this._view = view;
                 this._orders = {};
+                this._totalController._events.ordersChanged.subscribe(function(orders){
+                		that.update();
+                });
             },
             
             addUserOrder: function(order){
@@ -1047,7 +1062,10 @@ var utils = utils || {};
             },
             
             deleteOrder: function(order){
-                
+            },
+            
+            update: function(){
+            	this._view.updateView();
             },
             
             processOrder: function(order){
@@ -1111,6 +1129,9 @@ var utils = utils || {};
 		},
 		
 		updateView: function(){
+			this._ordersViews.forEach(function(orderView){
+				orderView.updateView();
+			});
 			this._$wrap.find('tr').first().find('td').first().attr('rowspan', this._ordersViews.length + 1);
 			$(".user-total", this._$wrap).html(this._total);
 		},
@@ -1140,7 +1161,9 @@ var utils = utils || {};
 		},
 		
 		updateView: function(){
-			
+			if (this._order._status === 'delivered'){
+				this._$wrap.find('td:nth-last-child(3), td:nth-last-child(2), td:nth-last-child(1)').toggleClass('order-delivered', true);
+			}
 		}
 		
 	});
@@ -1154,25 +1177,31 @@ var utils = utils || {};
             init: function(view){
                 var that = this;
                 this._view = view || new utils.TotalsView();
+                this._events = {orderUpdated: new utils.Event(), ordersChanged: new utils.Event()};
                 this._orders = {};
             },
             
             addOrder: function(order){
+            	var that = this;
                 var totalOrder = this._orders[order._restaurant];
                 if (!totalOrder){
                     this._orders[order._restaurant] = {total:{restaurant:order._restaurant, total:0},orders:[]};
                     totalOrder = this._orders[order._restaurant];
                     var totalView = new utils.TotalView(totalOrder);
                     totalView._events.checkoutClicked.subscribe(function(view){
-                        utils.checkOutOrders(view._orders.total.restaurant,view._orders.orders, function(){
-                            
+                        utils.checkOutOrders(view._orders.total.restaurant,view._orders.orders, function(result){
+                        	that.ordersConfirmed(view._orders, result);
                         });
                     });
                     totalView._events.retryClicked.subscribe(function(view){
-                        
+                    	 utils.checkOutOrders(view._orders.total.restaurant,view._orders.orders, function(result){
+                         	that.ordersConfirmed(view._orders, result);
+                         });
                     });
                     totalView._events.doneClicked.subscribe(function(view){
-                        
+                        that.ordersDelivered(view._orders, function(){
+                        	view._$wrap.remove();
+                        });
                     });
                     this._view.addView(totalView);
                 }
@@ -1187,6 +1216,41 @@ var utils = utils || {};
                     totalOrder.orders.push(order);
                 }
                 this._view.updateView();
+            },
+            
+            ordersDelivered: function(orders, callback){
+            	var that = this;
+            	this.updateOrders(orders,  'delivered', function(){
+            		delete that._orders[orders.total._restaurant];
+            		that._events.ordersChanged.publish(orders);
+            		if (callback){
+            			callback();
+            		}
+            	});
+            },
+            
+            ordersConfirmed: function(orders, result){
+            	this.updateOrders(orders,  result ? 'ordered' : 'failed');
+            },
+            
+            updateOrders: function(orders, status, callback){
+            	var that = this;
+       		 	var count = orders.orders.length;
+                function done(){
+                    if (count === 1){
+                     that._events.ordersChanged.publish(orders);
+                   	 that._view.updateView();
+                   	 if (callback){
+                   		 callback();
+                   	 }
+                    }else{
+                        count --;
+                    }
+                };
+                orders.orders.forEach(function(order){
+                    order._status = status;
+                    that._events.orderUpdated.publish(order, done);
+                });
             },
             
             clear: function(){
@@ -1255,12 +1319,12 @@ var utils = utils || {};
 		init: function(orders){
 			this._orders = orders;
 			this._$wrap = this.get$Wrap();
-                        this._$checkOutBtn = $('.checkout-btn', this._$wrap);
-                        this._$retryBtn = $('.retry-btn', this._$wrap);
-                        this._$doneBtn = $('.done-btn', this._$doneBtn);
-                        this._events = {checkoutClicked : new utils.Event(), retryClicked: new utils.Event(), doneClicked: new utils.Event()};
-                        this.initHandlers();
-                        this.updateView();
+            this._$checkOutBtn = $('.checkout-btn', this._$wrap);
+            this._$retryBtn = $('.retry-btn', this._$wrap);
+            this._$doneBtn = $('.done-btn', this._$wrap);
+            this._events = {checkoutClicked : new utils.Event(), retryClicked: new utils.Event(), doneClicked: new utils.Event()};
+            this.initHandlers();
+            this.updateView();
 		},
 		
 		get$Wrap: function(){
@@ -1281,14 +1345,43 @@ var utils = utils || {};
 		},
 		
 		updateView: function(){
-                     $('.total-restaurant', this._$wrap).html(this._orders.total.restaurant);
-		     $('.total-total', this._$wrap).html(this._orders.total.total);   
+             $('.total-restaurant', this._$wrap).html(this._orders.total.restaurant);
+		     $('.total-total', this._$wrap).html(this._orders.total.total);  
+		     if (this._orders.orders.length > 0){
+			     if (this._orders.orders[0]._status === 'commited'){
+			    	 this._$wrap.toggleClass('total-ordered total-failed', false);
+			    	 this._$retryBtn.hide();
+			    	 this._$doneBtn.hide();
+			    	 this._$checkOutBtn.show();
+			     }else if (this._orders.orders[0]._status === 'ordered'){
+			    	 this._$wrap.toggleClass('total-ordered', true);
+			    	 this._$wrap.toggleClass('total-failed', false);
+			    	 this._$retryBtn.hide();
+			    	 this._$doneBtn.show();
+			    	 this._$checkOutBtn.hide();
+			     }else if (this._orders.orders[0]._status === 'failed'){
+			    	 this._$wrap.toggleClass('total-ordered', false);
+			    	 this._$wrap.toggleClass('total-failed', true);
+			    	 this._$retryBtn.show();
+			    	 this._$doneBtn.hide();
+			    	 this._$checkOutBtn.hide();
+			     }
+		     }
 		}
 		
 		
 	});
 	
-	
+	utils.getRestaurantInfo = function(restaurant){
+		var info = undefined;
+		for (var index in utils.SUPPORTED_RESTAURANTS){
+			if (utils.SUPPORTED_RESTAURANTS[index].name === restaurant){
+				info = utils.SUPPORTED_RESTAURANTS[index];
+				break;
+			}
+		}
+		return info;
+	}
 	
 	utils.parseListDataToOrders = function(data){
 		var result = [];
@@ -1342,8 +1435,8 @@ var utils = utils || {};
 		return order._status === 'new' || order._status === 'commited';
 	}
 	
-	utils.isOrderCommited = function(order){
-		return order._status === 'commited';
+	utils.isOrderConfirmed = function(order){
+		return order._status === 'commited' || order._status === 'ordered' || order._status === 'failed';
 	}
         
         utils.checkOutOrders = function(restaurant, orders, callback){

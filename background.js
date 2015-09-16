@@ -2,16 +2,19 @@
     window.messages = [];
 	window.orderManager = new utils.IORDERMANAGER();
          window.checkOutOrders = function (restaurant, orders, callback){
-                var o = [];
-                orders.forEach(function(order){
-                    var order = {id:order._itemId};
-                    o.push(order);
-                });
-                 var newURL = "http://www.andys.md";
-                 
-                 chrome.tabs.create({ url: newURL, active:false }, function(tab){
-                     window.messages[tab.id] = {orders: o, callback:callback};
+             var restaurantInfo = utils.getRestaurantInfo(restaurant);
+             if (restaurantInfo){
+            	 var o = [];
+            	 orders.forEach(function(order){
+            		 var order = {id:order._itemId};
+            		 o.push(order);
+            	 });
+                 chrome.tabs.create({ url: restaurantInfo.url, active:false }, function(tab){
+                     window.messages[tab.id] = {orders: o, callback:callback, restaurant:restaurantInfo};
                  });
+             }else{
+            	 callback();
+             }
                      
 	};
         
@@ -20,7 +23,9 @@
         	var message = window.messages[tabId];
         	delete window.messages[tabId];
             chrome.tabs.sendMessage(tab.id, message, function (response) {
-            	console.log('message sent, activating!');
+            	 chrome.tabs.update(tab.id, { url: message.restaurant.checkOutUrl, active:true }, function(tab){
+                     message.callback(response);
+                 });
             });
      }
     });

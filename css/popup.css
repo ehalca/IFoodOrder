@@ -126,3 +126,8 @@ div.order:hover{
     border-width: 2px;
     border-style: solid;
 }
+
+.order-delivered{
+	color: #08c;
+    text-decoration: none;
+}
