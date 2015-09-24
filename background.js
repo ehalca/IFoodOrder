@@ -6,7 +6,7 @@
              if (restaurantInfo){
             	 var o = [];
             	 orders.forEach(function(order){
-            		 var order = {id:order._itemId};
+            		 var order = {id:order._itemId, details: order._details};
             		 o.push(order);
             	 });
                  chrome.tabs.create({ url: restaurantInfo.url, active:false }, function(tab){

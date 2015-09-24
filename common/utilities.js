@@ -4,7 +4,8 @@ var utils = utils || {};
 (function() {
 	
         utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md", checkOutUrl:"http://www.andys.md/ro/pages/cart/"};
-        utils.SUPPORTED_RESTAURANTS = [utils.ANDYS_RESTAURANT_CONST];
+        utils.LAPLACINTE_RESTAURANT_CONST = {name:"LaPlacinte", url:"http://laplacinte.md/", checkOutUrl:"http://laplacinte.md/ro/pages/cart/"};
+        utils.SUPPORTED_RESTAURANTS = [utils.ANDYS_RESTAURANT_CONST,utils.LAPLACINTE_RESTAURANT_CONST];
         
         
 	utils.API_KEY = "AIzaSyC821H6-hmGKB4w_FaSnmDPN5_GcFJ8fbI";
@@ -329,7 +330,7 @@ var utils = utils || {};
 			chrome.runtime.onMessage.addListener(function( message, sender, sendResponse) {
 				var processMessage = function(){
 					if (that._auth._user){
-						that._db.saveNewOrder(new utils.ORDER(message.restaurant,message.name, message.itemId,  message.price, that._auth._user, message.date, message.status, {imagePath:message.imagePath}), function(order){
+						that._db.saveNewOrder(new utils.ORDER(message.restaurant,message.name, message.itemId,  message.price, that._auth._user, message.date, message.status, message.details), function(order){
 							sendResponse({error:false});
 							chrome.browserAction.getBadgeText({}, function (result){
 								chrome.browserAction.setBadgeText({text:(Number(result)+1).toString()});
@@ -1450,6 +1451,8 @@ var utils = utils || {};
 	utils.getParser = function(restaurant){
 		if (restaurant === utils.ANDYS_RESTAURANT_CONST.name){
 			return new utils.AndysParser();
+		}else if (restaurant === utils.LAPLACINTE_RESTAURANT_CONST.name){
+			return new utils.LaPlacinteParser();
 		}
 	};
 	
