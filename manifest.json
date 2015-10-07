@@ -1,9 +1,9 @@
 {
   "manifest_version": 2,
 
-  "name": "iorder-food-corporate",
-  "description": "This extension shows a Google Image search result for the current page",
-  "version": "1.0",
+  "name": "Corporate Food Manager",
+  "description": "This is an extension to make food order by group/domain.",
+  "version": "1.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmrXvbL+RESk+4hD5NJElvNuYuxEktvvxoy16f5hFhdqq3WDqdzExDjxAIwJ4A4cU2cfEXyz41uHJZ53PoZB+pRmChTFZRZDP1GNIlgZVrxhSAeQbHXeAyZQlBr0WhKH0z79ZlDJ/aELDpg5Vvbeue9Cx2mZZbSi72mdHE+AMOSiRD+E3rD+nn1JCwMcdeO2DZWZ1wT3g35lQ+Z8PCmbqpURs/dmHs98r9cbHBLabFKFSHNcJ9NjKqY0vBDr3iQGNDdZCG2ZaDXvEODJZbY+rq+KvvAE2HTc6itWuksXX6o5mRKpBBgfoRxNYNh6CuGdkGe0xUotI6oRyInXyT97ZAwIDAQAB",
 
   "browser_action": {
