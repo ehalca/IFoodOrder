@@ -40,6 +40,16 @@
       "matches": ["http://www.google.com/robots.txt*"],
       "js": ["oauth2/oauth2_inject.js"],
         "run_at": "document_start"
+    },
+    {
+      "matches": ["http://www.oliva.md/*"],
+       "js": ["thirdparty/jquery-2.1.4.min.js","common/utilities.js", "common/parser.js","parsers/oliva-parser.js"],
+      "css" : ["css/iOrder.css", "css/oliva.css"]
+    },
+     {
+      "matches": ["http://www.celentano.md/*"],
+       "js": ["thirdparty/jquery-2.1.4.min.js","common/utilities.js", "common/parser.js","parsers/celentano-parser.js"],
+      "css" : ["css/iOrder.css", "css/celentano.css"]
     }],
     
     "web_accessible_resources" : [

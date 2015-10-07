@@ -235,13 +235,17 @@ utils.AndysParser = utils.PARSER.extend({
 
 chrome.runtime.onMessage.addListener(
     function (message, sender, sendResponse, done) {
-        if (message.orders && window.parser) {
-            window.parser.proceedToCheckout(message.orders, function(result){
-            	sendResponse(result);
-            	return;
-            });
-            return true;
-        } else {
-        	return false;
-    }
+    	var checkOut = function(){
+    		if (message.orders && window.parser) {
+    			window.parser.proceedToCheckout(message.orders, function(result){
+    				sendResponse(result);
+    			});
+    		}
+    	}
+    	if (window.parser){
+    		checkOut();
+    	}else{
+    		setTimeout(checkOut, 2000);
+    	}
+    	return true;
 });

@@ -90,12 +90,12 @@ $(document).ready(function() {
 					window.location='//pages/cart/';
 				}
 				arr=data.split('<>');
-				
-				clearTimeout(ptm);
+				if (window.ptm)
+				clearTimeout(window.ptm);
 				$('.n_podsk').show();
 				$('.n_podsk').fadeTo(0,0);
 				$('.n_podsk').fadeTo(500,1);
-				ptm=setTimeout(function() {
+				window.ptm=setTimeout(function() {
 					$('.n_podsk').fadeTo(500,0,function() {
 						$('.n_podsk').hide();
 					});

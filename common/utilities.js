@@ -5,7 +5,9 @@ var utils = utils || {};
 	
         utils.ANDYS_RESTAURANT_CONST = {name:"Andys", url:"http://www.andys.md", checkOutUrl:"http://www.andys.md/ro/pages/cart/"};
         utils.LAPLACINTE_RESTAURANT_CONST = {name:"LaPlacinte", url:"http://laplacinte.md/", checkOutUrl:"http://laplacinte.md/ro/pages/cart/"};
-        utils.SUPPORTED_RESTAURANTS = [utils.ANDYS_RESTAURANT_CONST,utils.LAPLACINTE_RESTAURANT_CONST];
+        utils.OLIVA_RESTAURANT_CONST = {name:"Oliva", url:"http://www.oliva.md/", checkOutUrl:"http://www.oliva.md/cart/"};
+        utils.CELENTANO_RESTAURANT_CONST = {name:"Celentano", url:"http://www.celentano.md/", checkOutUrl:"http://www.celentano.md/ro/basket.html"};
+        utils.SUPPORTED_RESTAURANTS = [utils.ANDYS_RESTAURANT_CONST,utils.LAPLACINTE_RESTAURANT_CONST, utils.OLIVA_RESTAURANT_CONST,utils.CELENTANO_RESTAURANT_CONST];
         
         
 	utils.API_KEY = "AIzaSyC821H6-hmGKB4w_FaSnmDPN5_GcFJ8fbI";
@@ -1348,25 +1350,29 @@ var utils = utils || {};
 		updateView: function(){
              $('.total-restaurant', this._$wrap).html(this._orders.total.restaurant);
 		     $('.total-total', this._$wrap).html(this._orders.total.total);  
-		     if (this._orders.orders.length > 0){
-			     if (this._orders.orders[0]._status === 'commited'){
-			    	 this._$wrap.toggleClass('total-ordered total-failed', false);
-			    	 this._$retryBtn.hide();
-			    	 this._$doneBtn.hide();
-			    	 this._$checkOutBtn.show();
-			     }else if (this._orders.orders[0]._status === 'ordered'){
-			    	 this._$wrap.toggleClass('total-ordered', true);
-			    	 this._$wrap.toggleClass('total-failed', false);
-			    	 this._$retryBtn.hide();
-			    	 this._$doneBtn.show();
-			    	 this._$checkOutBtn.hide();
-			     }else if (this._orders.orders[0]._status === 'failed'){
-			    	 this._$wrap.toggleClass('total-ordered', false);
-			    	 this._$wrap.toggleClass('total-failed', true);
-			    	 this._$retryBtn.show();
-			    	 this._$doneBtn.hide();
-			    	 this._$checkOutBtn.hide();
+		     try{
+			     if (this._orders.orders.length > 0){
+				     if (this._orders.orders[0]._status === 'commited'){
+				    	 this._$wrap.toggleClass('total-ordered total-failed', false);
+				    	 this._$retryBtn.hide();
+				    	 this._$doneBtn.hide();
+				    	 this._$checkOutBtn.show();
+				     }else if (this._orders.orders[0]._status === 'ordered'){
+				    	 this._$wrap.toggleClass('total-ordered', true);
+				    	 this._$wrap.toggleClass('total-failed', false);
+				    	 this._$retryBtn.hide();
+				    	 this._$doneBtn.show();
+				    	 this._$checkOutBtn.hide();
+				     }else if (this._orders.orders[0]._status === 'failed'){
+				    	 this._$wrap.toggleClass('total-ordered', false);
+				    	 this._$wrap.toggleClass('total-failed', true);
+				    	 this._$retryBtn.show();
+				    	 this._$doneBtn.hide();
+				    	 this._$checkOutBtn.hide();
+				     }
 			     }
+		     }catch(error){
+		    	 
 		     }
 		}
 		
@@ -1453,6 +1459,10 @@ var utils = utils || {};
 			return new utils.AndysParser();
 		}else if (restaurant === utils.LAPLACINTE_RESTAURANT_CONST.name){
 			return new utils.LaPlacinteParser();
+		}else if (restaurant === utils.OLIVA_RESTAURANT_CONST.name){
+			return new utils.OlivaParser();
+		}else if (restaurant === utils.CELENTANO_RESTAURANT_CONST.name){
+			return new utils.CelentanoParser();
 		}
 	};
 	

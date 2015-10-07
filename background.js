@@ -19,10 +19,13 @@
 	};
         
     chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    	console.log(changeInfo.status);
         if (window.messages[tabId] && changeInfo.status == "complete"){
         	var message = window.messages[tabId];
         	delete window.messages[tabId];
+        	console.log('sending message');
             chrome.tabs.sendMessage(tab.id, message, function (response) {
+            	console.log('message sent');
             	 chrome.tabs.update(tab.id, { url: message.restaurant.checkOutUrl, active:true }, function(tab){
                      message.callback(response);
                  });
