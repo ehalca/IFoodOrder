@@ -46,10 +46,10 @@ var utils = utils || {};
 		getItemImage : function(order){
 			
 		},
-                
-                proceedToCheckout: function(orders, callback){
-                    //called only inside page
-                }
+		
+        proceedToCheckout: function(orders, callback){
+            //called only inside page
+        }
 	});
 	
 utils.AndysParser = utils.PARSER.extend({

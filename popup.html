@@ -21,17 +21,20 @@
 	<ul id="tabs" class="nav nav-tabs">
 		<li class="active"><a href="#home" data-toggle="tab" >Home</a></li>
 		<li><a href="#administrator" data-toggle="tab">Administrate</a></li>
+		<li><a href="#info" data-toggle="tab">Info</a></li>
+		<li style='float:right'><a><i class='icon-user user-switch' title='Switch user'></i></a></li>
 	</ul>
 	<div class="tab-content">
 		<div  class="tab-pane active" id="home">
 			<div id="user-container" class="lead">
+			    <img alt="" src="" class='user-img'>
 				<span class='user-name'></span> <small><span
 					class='user-email muted'></span></small>
 			</div>
 			<br />
 			<div id="orders-container">
                                 <div>
-                                    <button class="btn btn-mini btn-primary confirm" type="button">CONFIRM <i class="icon-shopping-cart"></i></button>
+                                    <button class="btn btn-mini btn-info confirm" type="button">CONFIRM <i class="icon-shopping-cart"></i></button>
                                 </div>
                                 <br>
 				<div class="progress progress-striped active">
@@ -88,6 +91,42 @@
 					</tr>
 				</thead>
 			</table>
+			<div id="administrate-admin-message"><i>Your not logged in as user. Please go to Info tab for more information.</i></div>
+		</div>
+		<div  class="tab-pane" id="info">
+			<dl class="dl-horizontal" id="supported-restaurants">
+				<dt class=''>
+					<i>SUPPORTED</i>
+				</dt>
+				<dd class=''>
+					<strong><i>RESTAURANTS</i></strong>
+				</dd>
+			</dl>
+			<br>
+			<div id="domain-info">
+			<h2>Domain info</h2>
+				<dl>
+					<dt>Domain</dt>
+					<dd class='domain-description'><img class='domain-image'></img><span class='domain-name'></span></dd>
+				</dl>
+				<dl>
+					<dt>Admin Info</dt>
+					<dd class='domain-admin'></dd>
+				</dl>
+				<dl>
+					<dt>Users Info</dt>
+					<dd class='domain-users'>
+					</dd>
+				</dl>
+				<dl class='admin-requests'>
+					<dt>Admin Requests</dt>
+					<dd>
+					<dl class="dl-horizontal admin-requests-container">
+							
+						</dl>
+					</dd>
+				</dl>
+			</div>
 		</div>
 	</div>
 	<br>
@@ -104,14 +143,19 @@
 					class="muted"><small>Price</small></span> <strong><span
 					class="item-price"></span></strong><br>
 			</div>
-			<button class="close remove-order">&times;</button>
+			<div class="btn-toolbar">
+				<div class="btn-group order-actions">
+					<a class="btn btn-info commit-order" href="#"><i class="icon-shopping-cart"></i></a> 
+					<a class="btn btn-danger remove-order" href="#"><i class="icon-trash"></i></a>
+				</div>
+			</div>
 		</div>
 		<table>
 			<thead>
 				<tr id="order-history-view-mock">
-					<td><img src=""
+					<td class='preview-holder'><img src=""
 						class="preview-item-img img-rounded preview-item-img-small"></td>
-					<td style='min-width: 45px;'><small><span class="item-name"></span></small></td>
+					<td ><small><span class="item-name"></span></small></td>
 					<td><small><span class="item-restaurant"></span></small></td>
 					<td><small><span class="item-price"></span></small></td>
 					<td><small><span class="item-date"></span></small></td>
@@ -124,7 +168,7 @@
 		<table>
 			<thead>
 				<tr id="order-admin-view-mock">
-					<td style='min-width: 40px'><img src=""
+					<td class='preview-holder'><img src=""
 						class="preview-item-img img-rounded preview-item-img-small"></td>
 					<td><small><span class="item-name"></span></small></td>
 					<td><small><span class="item-restaurant"></span></small></td>
@@ -149,6 +193,10 @@
 			<tbody id="history-orders-container">
 			</tbody>
 		</table>
+		<div id="mock-supported-restaurant">
+			<dt class='supported-restaurant-name'></dt>
+			<dd class='supported-restaurant-url'></dd>
+		</div>
 	</div>
 </body>
 </html>

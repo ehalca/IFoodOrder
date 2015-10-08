@@ -6,16 +6,35 @@ document.addEventListener('DOMContentLoaded', function() {
 	 $('a[href="#administrator"]').on('shown.bs.tab', function (e) {
 		  updateAdministratorViews();
 	 });
+	 $('a[href="#info"]').on('shown.bs.tab', function (e) {
+		 initInfoTab();
+	 });
+	 
+	 
 	
 	 var updateOrder = function(order, callback){
          chrome.extension.getBackgroundPage().orderManager._db.updateOrder(order, function(){
          	callback();
          });
      };
+     
+    var onAdminCallback = function(user, orderManager){
+ 		if (user._isAdmin === undefined && orderManager){
+ 			orderManager.checkAdmin(onAdminCallback);
+ 		}
+ 		if (window.adminProcessor){
+ 			window.adminProcessor.userAdminUpdate(user);
+ 		}
+ 	};
 	
 	//Controller initialization
 	var onAuthSuccess = function(user){
 		$('.user-name').html(user._name);
+		$('.user-img').attr('src', user._image);
+		onAdminCallback(user, chrome.extension.getBackgroundPage().orderManager);
+		$('.user-switch').off('click').on('click', function(){
+			chrome.extension.getBackgroundPage().orderManager._auth.authenticateWithToken(true);
+		});
 		chrome.extension.getBackgroundPage().orderManager.getAuthenticateUserOrders(function(orders){
 			$(".progress", "#orders-container").remove();
 			window.orderController = new utils.OrderController(new utils.OrdersView());
@@ -40,6 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			chrome.extension.getBackgroundPage().orderManager._auth.authenticateWithToken(true);
 		});
 	};
+	
 	chrome.extension.getBackgroundPage().orderManager._auth.authenticateWithToken(false, onAuthSuccess, onAuthFail);
 	
 	chrome.browserAction.getBadgeText({}, function (result){
@@ -48,7 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	
 	function updateAdministratorViews(){
 		if (!window.adminProcessor){
-			window.adminProcessor = new utils.AdminOrderProccessor(new utils.AdminOrdersView())
+			window.adminProcessor = new utils.AdminOrderProccessor(chrome.extension.getBackgroundPage().orderManager._db._user, new utils.AdminOrdersView())
 			window.adminProcessor._totalController._events.orderUpdated.subscribe(updateOrder);
 		}
 		window.adminProcessor.deleteOrders();
@@ -67,6 +87,24 @@ document.addEventListener('DOMContentLoaded', function() {
 				});
 			}
 		});
+	};
+	
+	function initInfoTab(){
+		$('#supported-restaurants').empty();
+		 utils.SUPPORTED_RESTAURANTS.forEach(function(restaurant){
+			 var $restaurant = $('#mock-supported-restaurant').clone().removeAttr('id');
+			 $('.supported-restaurant-name', $restaurant).html(restaurant.name);
+			 var $link = $('<a href="'+restaurant.url+'">'+restaurant.url+'</a>');
+			 $link.on('click', function(){
+				 chrome.tabs.create({ url: restaurant.url, active:true }, function(tab){
+                 }); 
+			 });
+			 $('.supported-restaurant-url', $restaurant).append($link);
+			 $('#supported-restaurants').append($restaurant.children()); 
+		 });
+		 window.infoController = window.infoController || new utils.DomainController(chrome.extension.getBackgroundPage().orderManager._adminManager);
+		 window.infoController.updateView(chrome.extension.getBackgroundPage().orderManager._db._user);
 	}
+	
 });
 

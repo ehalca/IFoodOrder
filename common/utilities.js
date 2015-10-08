@@ -310,6 +310,7 @@ var utils = utils || {};
 		
 		_db : null,
 		_auth : null,
+		_adminManager: null,
 		_controller: null,
 		
 		init : function(db, auth){
@@ -357,6 +358,13 @@ var utils = utils || {};
 		
 		onDBReady: function(){//no async calls
 			var that = this;
+			if (!that._adminManager && that._db instanceof utils.GDriveDataStore){
+				that._adminManager = new utils.GAdministrateManager(function(){},that._db);
+			}
+		},
+		
+		checkAdmin: function(callback){
+			this._adminManager.checkAdmin(callback);
 		},
 		
 		getAuthenticateUserOrders: function(callback){
@@ -401,6 +409,233 @@ var utils = utils || {};
 		
 		saveNewOrder : function(order){
 			
+		}
+		
+	});
+	
+	utils.AdministrateManager = utils.Class.extend({
+		
+		_onAccessRequested :null,
+		
+		init: function(onAccessRequested){
+			this._onAccessRequested = onAccessRequested;
+			
+		},
+		
+		isUserAdmin: function(user){
+			
+		},
+		
+		isAdminSet: function(){
+			
+		},
+		
+		setUserAdmin: function(user){
+			
+		},
+		
+		requestAdminAccess: function(user){
+			
+		},
+		
+	});
+	
+	utils.GAdministrateManager = utils.AdministrateManager.extend({
+		
+		ADMIN_PROPERTY : 'ADMIN_USER',
+		ACCESS_REQUESTED_PROPERTY : 'ACCESS_REQUESTED',
+		USERS_PROPERTY : 'SAVED_USERS',
+		
+		_endPoints : {
+			get:{url:'https://www.googleapis.com/drive/v2/files/fileId/properties/propertyKey', type:'GET'},
+			insert:{url:'https://www.googleapis.com/drive/v2/files/fileId/properties',type:'POST'},
+			update:{url:'https://www.googleapis.com/drive/v2/files/fileId/properties/propertyKey',type:'PUT'}
+			},
+		
+		
+		_gStore : null,
+		
+		init: function(onAccessRequested, gStore){
+			this._gStore = gStore;
+			this._super(onAccessRequested);
+		},
+		
+		checkAdmin: function(callback){
+			var that = this;
+			this.isAdminSet(function(isAdminSet){
+				var setCurrentUserAdmin = function(){
+					that._gStore._user._isAdmin = true;
+					callback(that._gStore._user);
+				};
+				if (!isAdminSet){
+					that.setUserAdmin(that._gStore._user, function(){
+						setCurrentUserAdmin();
+						that.saveUser(user);
+					});
+				}else{
+					that.isUserAdmin(that._gStore._user, function(isUserAdmin){
+						if (isUserAdmin){
+							setCurrentUserAdmin();
+						}else{
+							callback(that._gStore._user);
+						}
+					});
+				}
+			})
+		},
+		
+		saveUser: function(user, callback){
+			var that = this;
+			this.getUsers(function(users){
+				if (users.indexOf(user._name) === -1){
+					users.push(user._name);
+				}
+				that.saveProperty(that.USERS_PROPERTY, users.join(';'), function(value){
+					if (callback){
+						callback(true);
+					}
+				});
+			});
+		},
+		
+		getUsers: function(callback){
+			var that = this;
+			this.getProperty(this.USERS_PROPERTY, function(value){
+				callback(value ? value.split(';') : []);
+			});
+		},
+		
+		isUserAdmin: function(user, callback){
+			var that= this;
+			this.getProperty(this.ADMIN_PROPERTY, function(value){
+				callback(value === user._name);
+				that.saveUser(user);
+			});
+		},
+		
+		isAdminSet: function(callback){
+			this.getProperty(this.ADMIN_PROPERTY, function(value){
+				callback(value);
+			});
+		},
+		
+		setUserAdmin: function(user, callback){
+			this.saveProperty(this.ADMIN_PROPERTY, user._name, function(result){
+				callback(result);
+			});
+		},
+		
+		getAdminRequests: function(callback){
+			this.getProperty(this.ACCESS_REQUESTED_PROPERTY, function(value){
+				callback(value ? value.split(';') : []);
+			});
+		},
+		
+		requestAdminAccess: function(user, callback){
+			var that = this;
+			this.getAdminRequests(function(requests){
+				if (requests.indexOf(user._name) === -1){
+					requests.push(user._name);
+				}
+				that.saveProperty(that.ACCESS_REQUESTED_PROPERTY, requests.join(';'), function(result){
+					if (callback){
+						callback(result);
+					}
+				});
+			});
+		},
+		
+		giveAdminAccess: function(username, callback){
+			var that= this;
+			this.getAdminRequests(function(requests){
+				if (requests.indexOf(username) > -1){
+					requests.splice(requests.indexOf(username), 1);
+				}
+				that.saveProperty(that.ACCESS_REQUESTED_PROPERTY, requests.join(';'), function(result){
+					that.setUserAdmin({_name: username}, function(result){
+						if (callback){
+							callback(result);
+						}
+					});
+				});
+			});
+		},
+		
+		saveProperty: function(key, value, callback){
+			var that = this;
+			this.getProperty(key, function(result){
+				if (result){
+					that.updateProperty(key, value, callback);
+				}else{
+					$.ajax({
+				         url: that._endPoints.insert.url.replace('fileId',that._gStore._documentId)+'?key='+utils.API_KEY,
+				         data: JSON.stringify({key:key,value:value}),
+				         contentType:'application/json',
+				         type: that._endPoints.insert.type,
+				         beforeSend: function(xhr){
+				        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._gStore._user._accessToken);
+				        	 },
+				         success: function(data){
+								if (!_.isEmpty(data)){
+									callback(data.value);
+								}else{
+									//TBD process error
+									 callback(undefined);
+								}
+							},
+						 error: function( jqXHR,  textStatus, errorThrown ){
+							 callback(undefined);
+						 }
+				      });
+				}
+			});
+		},
+		
+		updateProperty: function(key, value, callback){
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.update.url.replace('fileId',that._gStore._documentId).replace('propertyKey', key)+'?key='+utils.API_KEY,
+		         data: JSON.stringify({key:key,value:value}),
+		         contentType:'application/json',
+		         type: that._endPoints.update.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._gStore._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data)){
+							callback(data.value);
+						}else{
+							//TBD process error
+							 callback(undefined);
+						}
+					},
+				 error: function( jqXHR,  textStatus, errorThrown ){
+					 callback(undefined);
+				 }
+		      });
+		},
+		
+		getProperty: function(key, callback){
+			var that = this;
+			$.ajax({
+		         url: that._endPoints.get.url.replace('fileId',that._gStore._documentId).replace('propertyKey', key)+'?key='+utils.API_KEY,
+		         contentType:'application/json',
+		         type: that._endPoints.get.type,
+		         beforeSend: function(xhr){
+		        		 xhr.setRequestHeader('Authorization', 'Bearer '+that._gStore._user._accessToken);
+		        	 },
+		         success: function(data){
+						if (!_.isEmpty(data)){
+							callback(data.value);
+						}else{
+							//TBD process error
+							 callback(undefined);
+						}
+					},
+				 error: function( jqXHR,  textStatus, errorThrown ){
+					 callback(undefined);
+				 }
+		      });
 		}
 		
 	});
@@ -719,6 +954,95 @@ var utils = utils || {};
 		
 	});
 	
+	utils.DomainController = utils.Class.extend({
+		
+		_propertyManager: null,
+		
+		_view : null,
+		
+		_user : null,
+		
+		init: function(propertyManager, view){
+			var that = this;
+			this._propertyManager = propertyManager;
+			this._view = view || new utils.DomainView();
+			this._view._events.giveAccess.subscribe(function(username, callback){
+				that._propertyManager.giveAdminAccess(username, callback);
+			});
+		},
+		
+		updateView: function(user){
+			this._user = user;
+			var that = this;
+			this._propertyManager.getUsers(function(users){
+				that._view.setUsers(users);
+			});
+			this._propertyManager.isAdminSet(function(admin){
+				that._view.setAdminInfo(admin);
+			});
+			this._propertyManager.isUserAdmin(this._user, function(result){
+				if (result){
+					that._propertyManager.getAdminRequests(function(requests){
+						that._view.setAdminRequest(requests);
+					});
+				}
+			});
+			this._view.setDomainInfo(undefined, this._user._company);
+		},
+		
+	});
+	
+	utils.DomainView = utils.Class.extend({
+		
+		_$wrap: null,
+		
+		_events: null,
+		
+		init: function(){
+			this._$wrap = this.get$Wrap();
+			this._events = {giveAccess: new utils.Event()};
+		},
+		
+		setDomainInfo: function(image, domainName){
+			$('.domain-name', this._$wrap).html(domainName);
+		},
+		
+		setUsers: function(users){
+			$('.domain-users', this._$wrap).html(users.length > 0 ? users.join(',') : 'no users saved');
+		},
+		
+		setAdminInfo: function(admin){
+			$('.domain-admin', this._$wrap).html(admin);
+		},
+		
+		setAdminRequest: function(requests){
+			var that = this;
+			var $container =$('.admin-requests-container', this._$wrap);
+			if (requests.length > 0){
+				$('.admin-requests', this._$wrap).show();
+			}else{
+				$('.admin-requests', this._$wrap).hide();
+			}
+			requests.forEach(function(request){
+				var $mock = $('<dt>'+request+'</dt>');
+				var $btn = $('<a class="btn">Give Access</a>');
+				$btn.on('click', function(){
+					$('a.btn', $container).attr('disabled','disabled');
+					that._events.giveAccess.publish(request, function(){
+						$('.admin-requests', that._$wrap).hide();
+					});
+				});
+				$container.append($mock);
+				$container.append($btn);
+			});
+		},
+		
+		get$Wrap: function(){
+			return $('#domain-info');
+		}
+		
+	});
+	
 	utils.OrderController = utils.Class.extend({
 		
 		_view : null,
@@ -738,14 +1062,13 @@ var utils = utils || {};
 			this._view._events.deleted.subscribe(function(order, callback){
 				that.deleteOrder(order, callback);
 			});
-                        
-                        this._view._events.confirmClicked.subscribe(function(view, callback){
-                            that.confirm(function(result){
-                                if (result){
-                                }
-                                callback();
-                            });
-                        });
+            this._view._events.confirmClicked.subscribe(function(view, callback){
+                that.confirm(function(result){
+                    if (result){
+                    }
+                    callback();
+                });
+            });
 		},
 		
 		deleteOrder : function(order, callback){
@@ -757,29 +1080,39 @@ var utils = utils || {};
 		},
 		
 		addOrder: function(order){
-                    this._orders.push(order);
-			this._view.addView(new utils.OrderView(order));
+			var that = this;
+            this._orders.push(order);
+            var orderView = new utils.OrderView(order);
+            orderView._events.commited.subscribe(function(order, callback){
+            	 that.commitOrder(order, callback);
+			});
+			this._view.addView(orderView);
 		},
                 
-                addHistoryOrder: function(order){
-                    this._historyView.addView(new utils.HistoryOrderView(order));
-                },
-		
-                confirm : function(callback){
-                    var that = this;
-                    var count = this._orders.length;
-                    function done(){
-                        if (count === 1){
-                            callback();
-                        }else{
-                            count --;
-                        }
-                    };
-                    this._orders.forEach(function(order){
-                        order._status = 'commited';
-                        that._events.orderUpdated.publish(order, done);
-                    });
+        addHistoryOrder: function(order){
+            this._historyView.addView(new utils.HistoryOrderView(order));
+        },
+
+        confirm : function(callback){
+            var that = this;
+            var count = this._orders.length;
+            function done(){
+                if (count === 1){
+                    callback();
+                }else{
+                    count --;
                 }
+            };
+            this._orders.forEach(function(order){
+                that.commitOrder(order, done);
+            });
+        },
+        
+        commitOrder: function(order, callback){
+        	var that = this;
+        	order._status = 'commited';
+            that._events.orderUpdated.publish(order, callback);
+        }
 		
 	});
 	
@@ -950,14 +1283,14 @@ var utils = utils || {};
 		
 		init: function(order){
 			this._order = order;
-			this._events = {deleted: new utils.Event()};
+			this._events = {deleted: new utils.Event(), commited: new utils.Event()};
 			this._$wrap = this.get$Wrap();
 			$('.item-name', this._$wrap).html(this._order._itemName);
 			$('.item-restaurant', this._$wrap).html(this._order._restaurant);
 			$('.item-price', this._$wrap).html(this._order._itemPrice);
 			$('.preview-item-img', this._$wrap).attr('src',utils.getParser(this._order._restaurant).getItemImage(this._order));
 			this.initHandlers();
-                        this.updateView();
+            this.updateView();
 		},
 		
 		get$Wrap: function(){
@@ -971,6 +1304,11 @@ var utils = utils || {};
 					that._$wrap.hide('slow', function(){
 						$(this).remove();
 					});
+				});
+			});
+			$('.commit-order', this._$wrap).click(function(){
+				that._events.commited.publish(that._order, function(){
+					that.updateView();
 				});
 			});
 		},
@@ -1044,7 +1382,7 @@ var utils = utils || {};
             
             _totalController: null,
             
-            init : function(view){
+            init : function(user, view){
                 var that = this;
                 this._totalController = new utils.TotalController();
                 this._view = view;
@@ -1052,6 +1390,7 @@ var utils = utils || {};
                 this._totalController._events.ordersChanged.subscribe(function(orders){
                 		that.update();
                 });
+                this.userAdminUpdate(user);
             },
             
             addUserOrder: function(order){
@@ -1078,6 +1417,14 @@ var utils = utils || {};
             checkOut: function(){
                 
             },
+            
+            userAdminUpdate: function(loggedInUser){
+            	if (loggedInUser._isAdmin){
+            		this._totalController.showTotals();
+            	}else{
+            		this._totalController.showAdminMessage();
+            	}
+            }
             
             
         });
@@ -1259,6 +1606,16 @@ var utils = utils || {};
             clear: function(){
                  this._orders = {};
                  this._view.clear();
+            },
+            
+            showTotals: function(){
+            	this._view._$wrap.show();
+            	this._view._$admin.hide();
+            },
+            
+            showAdminMessage: function(){
+            	this._view._$wrap.hide();
+            	this._view._$admin.show();
             }
             
         });
@@ -1267,10 +1624,13 @@ var utils = utils || {};
            
             _$wrap: null,
             
+            _$admin: null,
+            
             _views: null,
             
             init:function(){
                 this._$wrap = $('#administrate-totals-container');
+                this._$admin = $('#administrate-admin-message');
                 this._views = [];
                 this.updateView();
             },

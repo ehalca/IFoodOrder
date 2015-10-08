@@ -73,10 +73,12 @@ div.order:hover{
 	margin-botton:3px;
 }
 
-.remove-order{
-	position: relative;
-    left: -10px;
-    top:+5px;
+.order-actions{
+    position: relative;
+    left: +185px;
+}
+.order-actions > i {
+ cursor: pointer; cursor: hand;
 }
 
 .item-name{
@@ -130,4 +132,8 @@ div.order:hover{
 .order-delivered{
 	color: #08c;
     text-decoration: none;
+}
+
+.preview-holder{
+	min-width: 45px;
 }
