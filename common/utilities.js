@@ -533,6 +533,9 @@ var utils = utils || {};
 		
 		requestAdminAccess: function(user, callback){
 			var that = this;
+			if (!user){
+				user = this._user;
+			}
 			this.getAdminRequests(function(requests){
 				if (requests.indexOf(user._name) === -1){
 					requests.push(user._name);
@@ -969,6 +972,9 @@ var utils = utils || {};
 			this._view._events.giveAccess.subscribe(function(username, callback){
 				that._propertyManager.giveAdminAccess(username, callback);
 			});
+			this._view._events.requestAccess.subscribe(function(callback){
+				that._propertyManager.requestAdminAccess(undefined,callback);
+			});
 		},
 		
 		updateView: function(user){
@@ -978,14 +984,14 @@ var utils = utils || {};
 				that._view.setUsers(users);
 			});
 			this._propertyManager.isAdminSet(function(admin){
-				that._view.setAdminInfo(admin);
-			});
-			this._propertyManager.isUserAdmin(this._user, function(result){
-				if (result){
-					that._propertyManager.getAdminRequests(function(requests){
-						that._view.setAdminRequest(requests);
-					});
-				}
+				that._propertyManager.isUserAdmin(that._user, function(result){
+						that._propertyManager.getAdminRequests(function(requests){
+							if (result){
+								that._view.setAdminRequest(requests);
+							}
+							that._view.setAdminInfo(admin, result, requests.indexOf(that._user._name) > -1);
+						});
+				});
 			});
 			this._view.setDomainInfo(undefined, this._user._company);
 		},
@@ -1000,7 +1006,7 @@ var utils = utils || {};
 		
 		init: function(){
 			this._$wrap = this.get$Wrap();
-			this._events = {giveAccess: new utils.Event()};
+			this._events = {giveAccess: new utils.Event(), requestAccess: new utils.Event()};
 		},
 		
 		setDomainInfo: function(image, domainName){
@@ -1011,8 +1017,29 @@ var utils = utils || {};
 			$('.domain-users', this._$wrap).html(users.length > 0 ? users.join(',') : 'no users saved');
 		},
 		
-		setAdminInfo: function(admin){
+		setAdminInfo: function(admin, isAdmin, isAdminRequested){
+			var that = this;
 			$('.domain-admin', this._$wrap).html(admin);
+			var alreadyRequested = function(){
+				$('.domain-request', that._$wrap).html('<p class="muted"><i>You have already requested Admin access.</i></p>');
+			};
+			if (isAdmin){
+				$('.admin-request', this._$wrap).hide();
+			}else{
+				$('.admin-request', this._$wrap).show();
+				if (isAdminRequested){
+					alreadyRequested();
+				}else{
+					var $requestBtn = $('<a class="btn btn-info">Request Access</a>');
+					$requestBtn.on('click', function(){
+						$(this).attr('disabled', 'disabled');
+						that._events.requestAcccess.publish(function(){
+							alreadyRequested();
+						});
+					});
+					$('.domain-request', that._$wrap).empty().append($requestBtn);
+				}
+			}
 		},
 		
 		setAdminRequest: function(requests){
@@ -1824,6 +1851,17 @@ var utils = utils || {};
 		}else if (restaurant === utils.CELENTANO_RESTAURANT_CONST.name){
 			return new utils.CelentanoParser();
 		}
+	};
+	
+	utils.isSessionSet = function(cookies){
+		if (!cookies){
+			return false;
+		}
+		var result = false;
+		for (var i = 0; i < cookies.length && !result; i++ ){
+			result = cookies[i].session;
+		}
+		return result;
 	};
 	
 	utils.mapUser = function(userInfo, token){

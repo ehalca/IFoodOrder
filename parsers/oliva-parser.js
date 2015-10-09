@@ -58,7 +58,6 @@ $(document).ready(function() {
 		},
 		
 		addToCart : function(id,type, callback){
-			console.log('item added ' + id);
 				$.get("/classes/ajax/cart.php",{go_rate:1,product_id:id},function(a){callback();});
 		}
 		

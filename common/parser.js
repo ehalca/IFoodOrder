@@ -1,6 +1,22 @@
 // Class Library. Inspired by Simple JavaScript Inheritance By John Resig
 var utils = utils || {};
-
+chrome.runtime.onMessage.addListener(
+	    function (message, sender, sendResponse, done) {
+	    	console.log('message received!!!');
+	    	var checkOut = function(){
+	    		if (message.orders && window.parser) {
+	    			window.parser.proceedToCheckout(message.orders, function(result){
+	    				sendResponse(result);
+	    			});
+	    		}
+	    	}
+	    	if (window.parser){
+	    		checkOut();
+	    	}else{
+	    		setTimeout(checkOut, 2000);
+	    	}
+	    	return true;
+	});
 (function() {
 	
 	utils.PARSER = utils.Class.extend({
@@ -233,19 +249,3 @@ utils.AndysParser = utils.PARSER.extend({
 	
 })();
 
-chrome.runtime.onMessage.addListener(
-    function (message, sender, sendResponse, done) {
-    	var checkOut = function(){
-    		if (message.orders && window.parser) {
-    			window.parser.proceedToCheckout(message.orders, function(result){
-    				sendResponse(result);
-    			});
-    		}
-    	}
-    	if (window.parser){
-    		checkOut();
-    	}else{
-    		setTimeout(checkOut, 2000);
-    	}
-    	return true;
-});

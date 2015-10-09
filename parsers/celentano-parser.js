@@ -42,21 +42,19 @@ $(document).ready(function() {
 			var that = this;
 			console.log(JSON.stringify(orders));
 			var count = orders.length;
-			orders.forEach(function(order){
-				that.addToCart(Number(order.id),order.details.type, function(){
-					if (count === 1){
-						if (callback){
-							callback(true);
-						}
-					}else{
-						count--;
-					}
-				});
-			});
+			var submitOrder = function(orders, i, callback){
+				if (i === -1){
+					callback(true);
+				}else{
+					that.addToCart(Number(orders[i].id),orders[i].details.type, function(){
+						submitOrder(orders, i-1, callback);
+					});
+				}
+			}
+			submitOrder(orders, orders.length - 1, callback);
 		},
 		
 		addToCart : function(id,type, callback){
-			console.log('item added ' + id);
 				$.get("/e.php",{action:'add_item', items_count:1,goods_item_id:id, location:'/ro/menu'},function(a){callback();});
 		}
 		
