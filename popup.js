@@ -51,6 +51,14 @@ document.addEventListener('DOMContentLoaded', function() {
 				});
 			});
             window.orderController._events.orderUpdated.subscribe(updateOrder);
+            window.orderController._events.orderReordered.subscribe(function(order){
+            	chrome.extension.getBackgroundPage().orderManager._db.saveNewOrder(new utils.ORDER(order._restaurant,order._itemName, order._itemId,  order._itemPrice, order._user, (new Date()).toString(), 'new', order._details), function(resultOrder){
+            		var view = window.orderController.addOrder(resultOrder);
+            		window.orderController.commitOrder(resultOrder, function(){
+            			view.updateView();
+            		});
+            	});
+            });
 		});
 	};
 	var onAuthFail = function(user){

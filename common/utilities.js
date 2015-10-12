@@ -1082,7 +1082,7 @@ var utils = utils || {};
 		
 		init: function(view){
 			var that = this;
-			this._events = {orderDeleted: new utils.Event(),orderUpdated: new utils.Event()};
+			this._events = {orderDeleted: new utils.Event(),orderUpdated: new utils.Event(), orderReordered: new utils.Event()};
 			this._view = view;
                         this._orders = [];
                         this._historyView = new utils.HistoryOrdersView();
@@ -1114,10 +1114,16 @@ var utils = utils || {};
             	 that.commitOrder(order, callback);
 			});
 			this._view.addView(orderView);
+			return orderView;
 		},
                 
         addHistoryOrder: function(order){
-            this._historyView.addView(new utils.HistoryOrderView(order));
+        	var that = this;
+        	var historyOrderView = new utils.HistoryOrderView(order);
+        	historyOrderView._events.reOrdered.subscribe(function(order){
+        		that._events.orderReordered.publish(order);
+        	});
+            this._historyView.addView(historyOrderView);
         },
 
         confirm : function(callback){
@@ -1359,11 +1365,15 @@ var utils = utils || {};
 			var sDate = "" + date.getDate() + date.getMonth() + date.getFullYear()
 			$('.item-date', this._$wrap).html(sDate);
 			$('.item-status', this._$wrap).html(this._order._status);
+			this._events.reOrdered = new utils.Event();
 			this.updateView();
 		},
 		
 		initHandlers : function(){
 			var that = this;
+			$('.reorder-order', this._$wrap).on('click', function(){
+				that._events.reOrdered.publish(that._order);
+			});
 			this.initPreview();
 		},
 		
@@ -1383,7 +1393,7 @@ var utils = utils || {};
 				trigger: 'hover',
 				title:this._order._itemName,
 				content:function(){
-					var result = $('.preview-item-img', this._$wrap).clone();
+					var result = $('.preview-item-img', that._$wrap).clone();
 					result.removeClass('preview-item-img-small');
 					result.addClass('preview-item-img-big');
 					return result[0].outerHTML;
@@ -1737,25 +1747,27 @@ var utils = utils || {};
 		updateView: function(){
              $('.total-restaurant', this._$wrap).html(this._orders.total.restaurant);
 		     $('.total-total', this._$wrap).html(this._orders.total.total);  
+		     this._$retryBtn.hide();
+		     this._$checkOutBtn.hide();
+		     this._$doneBtn.hide();
 		     try{
 			     if (this._orders.orders.length > 0){
-				     if (this._orders.orders[0]._status === 'commited'){
+			    	 var isCheckOut = false;
+			    	 var isDone = false;
+			    	 for (var i = 0; i < this._orders.orders.length && !(isCheckOut && isDone); i++){
+			    		 if (this._orders.orders[i]._status === 'commited'){
+			    			 isCheckOut = true;
+			    		 }else if (this._orders.orders[i]._status === 'ordered'){
+			    			 isDone = true;
+			    		 }
+			    	 }
+				     if (isCheckOut){
 				    	 this._$wrap.toggleClass('total-ordered total-failed', false);
-				    	 this._$retryBtn.hide();
-				    	 this._$doneBtn.hide();
 				    	 this._$checkOutBtn.show();
-				     }else if (this._orders.orders[0]._status === 'ordered'){
+				     }
+				     if (isDone){
 				    	 this._$wrap.toggleClass('total-ordered', true);
-				    	 this._$wrap.toggleClass('total-failed', false);
-				    	 this._$retryBtn.hide();
 				    	 this._$doneBtn.show();
-				    	 this._$checkOutBtn.hide();
-				     }else if (this._orders.orders[0]._status === 'failed'){
-				    	 this._$wrap.toggleClass('total-ordered', false);
-				    	 this._$wrap.toggleClass('total-failed', true);
-				    	 this._$retryBtn.show();
-				    	 this._$doneBtn.hide();
-				    	 this._$checkOutBtn.hide();
 				     }
 			     }
 		     }catch(error){
