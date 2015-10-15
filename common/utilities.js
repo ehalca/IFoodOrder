@@ -1033,7 +1033,7 @@ var utils = utils || {};
 					var $requestBtn = $('<a class="btn btn-info">Request Access</a>');
 					$requestBtn.on('click', function(){
 						$(this).attr('disabled', 'disabled');
-						that._events.requestAcccess.publish(function(){
+						that._events.requestAccess.publish(function(){
 							alreadyRequested();
 						});
 					});
