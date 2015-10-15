@@ -470,7 +470,7 @@ var utils = utils || {};
 				if (!isAdminSet){
 					that.setUserAdmin(that._gStore._user, function(){
 						setCurrentUserAdmin();
-						that.saveUser(user);
+						that.saveUser(that._gStore._user);
 					});
 				}else{
 					that.isUserAdmin(that._gStore._user, function(isUserAdmin){
@@ -534,7 +534,7 @@ var utils = utils || {};
 		requestAdminAccess: function(user, callback){
 			var that = this;
 			if (!user){
-				user = this._user;
+				user = this._gStore._user;
 			}
 			this.getAdminRequests(function(requests){
 				if (requests.indexOf(user._name) === -1){
