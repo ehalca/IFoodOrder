@@ -64,13 +64,15 @@ background: -o-linear-gradient(-45deg, rgba(255,255,255,1) 0%, rgba(237,237,237,
 background: -ms-linear-gradient(-45deg, rgba(255,255,255,1) 0%, rgba(237,237,237,1) 97%, rgba(237,237,237,1) 100%);
 background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(237,237,237,1) 97%, rgba(237,237,237,1) 100%);
 filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#ededed', GradientType=1 );
-	
+padding-bottom: 2px;
+ padding-top: 2px;
 }
 
 div.order:hover{
-	box-shadow: 5px 5px 5px grey;
-	margin-top:10px;
-	margin-botton:3px;
+ box-shadow: 5px 5px 5px grey;
+ margin-top:10px;
+ padding-bottom: 1px;
+ padding-top: 1px;
 }
 
 .order-actions{
